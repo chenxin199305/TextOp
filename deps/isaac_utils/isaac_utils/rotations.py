@@ -10,6 +10,7 @@ from isaac_utils.maths import (
     normalize,
 )
 
+
 ######################## QUAT: XYZW #################################
 
 
@@ -82,7 +83,7 @@ def quat_rotate(q: Tensor, v: Tensor, w_last: bool) -> Tensor:
     else:
         q_w = q[:, 0]
         q_vec = q[:, 1:]
-    a = v * (2.0 * q_w**2 - 1.0).unsqueeze(-1)
+    a = v * (2.0 * q_w ** 2 - 1.0).unsqueeze(-1)
     b = torch.cross(q_vec, v, dim=-1) * q_w.unsqueeze(-1) * 2.0
     c = q_vec * torch.bmm(q_vec.view(shape[0], 1, 3), v.view(shape[0], 3, 1)).squeeze(-1) * 2.0
     return a + b + c
@@ -97,7 +98,7 @@ def quat_rotate_inverse(q: Tensor, v: Tensor, w_last: bool) -> Tensor:
     else:
         q_w = q[:, 0]
         q_vec = q[:, 1:]
-    a = v * (2.0 * q_w**2 - 1.0).unsqueeze(-1)
+    a = v * (2.0 * q_w ** 2 - 1.0).unsqueeze(-1)
     b = torch.cross(q_vec, v, dim=-1) * q_w.unsqueeze(-1) * 2.0
     c = q_vec * torch.bmm(q_vec.view(shape[0], 1, 3), v.view(shape[0], 3, 1)).squeeze(-1) * 2.0
     return a - b + c
@@ -115,7 +116,7 @@ def quat_angle_axis(x: Tensor, w_last: bool) -> Tuple[Tensor, Tensor]:
     else:
         w = x[..., 0]
         axis = x[..., 1:]
-    s = 2 * (w**2) - 1
+    s = 2 * (w ** 2) - 1
     angle = s.clamp(-1, 1).arccos()  # just to be safe
     axis /= axis.norm(p=2, dim=-1, keepdim=True).clamp(min=1e-9)
     return angle, axis
@@ -236,7 +237,7 @@ def my_quat_rotate(q, v):
     shape = q.shape
     q_w = q[:, -1]
     q_vec = q[:, :3]
-    a = v * (2.0 * q_w**2 - 1.0).unsqueeze(-1)
+    a = v * (2.0 * q_w ** 2 - 1.0).unsqueeze(-1)
     b = torch.cross(q_vec, v, dim=-1) * q_w.unsqueeze(-1) * 2.0
     c = q_vec * torch.bmm(q_vec.view(shape[0], 1, 3), v.view(shape[0], 3, 1)).squeeze(-1) * 2.0
     return a + b + c

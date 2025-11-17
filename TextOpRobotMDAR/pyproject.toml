@@ -8,10 +8,10 @@ version = "0.1.0"
 description = "Robot Motion Diffusion Auto Regressive Model"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = { text = "MIT" }
 authors = [
-    {name = "Weiji Xie"},
-    {name = "Jiakun Zheng"}
+    { name = "Weiji Xie" },
+    { name = "Jiakun Zheng" }
 ]
 keywords = ["robotics", "motion", "diffusion", "machine-learning"]
 classifiers = [
@@ -44,7 +44,7 @@ dependencies = [
     "tqdm==4.66.4",
     "wandb==0.16.6",
     'einops==0.8.1',
-    "torch_tensorrt", 
+    "torch_tensorrt",
     "tensorboard"
 ]
 
@@ -93,13 +93,13 @@ python_functions = ["test_*"]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F", "W", "I", "B", "N"]
 ignore = [
-    "I001",     # Import block is un-sorted or un-formatted
-    "F403",     # 'from module import *' used; unable to detect undefined names
-    "F401",     # Module imported but unused
-    "E501",     # Line too long
-    "F541",     # f-string is missing placeholders
-    "W293",     # Blank line contains whitespace
-    "B008",     # Do not perform function calls in argument defaults
+    "I001", # Import block is un-sorted or un-formatted
+    "F403", # 'from module import *' used; unable to detect undefined names
+    "F401", # Module imported but unused
+    "E501", # Line too long
+    "F541", # f-string is missing placeholders
+    "W293", # Blank line contains whitespace
+    "B008", # Do not perform function calls in argument defaults
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

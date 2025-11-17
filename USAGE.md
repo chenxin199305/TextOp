@@ -1,6 +1,7 @@
-
 # Usage
+
 This project uses two Python environments. It's recommended to use conda for environment management.
+
 - `textop` for TextOpRobotMDAR + TextOpDeploy
 - `env_isaaclab` for TextOpTracker with IsaacLab
 
@@ -14,12 +15,12 @@ git clone --recurse-submodules git@github.com:TeleHuman/TextOp.git
 ```
 
 ## System Requirements
+
 We tested the project on:
+
 - Ubuntu 20.04
 - ROS2 foxy
 - with 1 NVIDIA 4090 GPU
-
-
 
 ## Preparing Data and Model
 
@@ -29,8 +30,6 @@ Please respect the licenses of:
 unitree_mujoco, BeyondMimic, AMASS, BABEL-TEACH, LAFAN1.
 
 For details on the dataset composition and data processing pipeline, refer to [DATASET.md](DATASET.md).
-
-
 
 ## TextOpRobotMDAR
 
@@ -48,24 +47,25 @@ pip install git+https://github.com/openai/CLIP.git
 ```
 
 Set the environment variables:
-```bash
 
+```bash
 cd TextOpRobotMDAR
 
 EXPNAME=ExampleRun
 DATADIR=BABEL-AMASS-ROBOT-23dof-FULL-50fps
 DATAFLAGS="data.weighted_sample=true data.datadir=./dataset/${DATADIR} data.action_statistics_path=./dataset/RobotMDAR-statistics/action_statistics.json skeleton.asset.assetRoot=./description/robots/g1/"
-
 ```
 
 ### Inference
 
 We have provided some pretrained checkpoints:
- * `TextOpRobotMDAR/logs/pretrained/checkpoint/ckpt_200000.pth` is the ckpt of dar.
- * `TextOpRobotMDAR/logs/pretrained/checkpoint/vae.pth` is the ckpt of mvae.
- * Note that this set of checkpoints should be run with  `DATADIR=PRIVATE-DATA`, corresponding to the statistics of its training data. It cannot run `vis_mvae` and `vis_dar` since the raw data is not provided.
+
+* `TextOpRobotMDAR/logs/pretrained/checkpoint/ckpt_200000.pth` is the ckpt of dar.
+* `TextOpRobotMDAR/logs/pretrained/checkpoint/vae.pth` is the ckpt of mvae.
+* Note that this set of checkpoints should be run with  `DATADIR=PRIVATE-DATA`, corresponding to the statistics of its training data. It cannot run `vis_mvae` and `vis_dar` since the raw data is not provided.
 
 #### 1. Run Online Motion Generation with DAR:
+
 ```bash
 robotmdar --config-name=loop_dar ckpt.dar=/path/to/dar/ckpt_200000.pth guidance_scale=5.0 ${DATAFLAGS}
 ```
@@ -80,6 +80,7 @@ robotmdar --config-name=vis_dar ckpt.dar=/path/to/dar/ckpt_200000.pth guidance_s
 ```
 
 ### Training MVAE & DAR
+
 - You can shorten training duration by modifying: `train.manager.stages`, which are the number of training steps in multiple stages.
 
 ```bash
@@ -101,7 +102,6 @@ diffusion.num_timesteps=5
 
 ```
 
-
 ## TextOpTracker
 
 ### Installation
@@ -109,13 +109,15 @@ diffusion.num_timesteps=5
 - Install Isaac Lab v2.1.0 by following the [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html). Supposed that conda environment `env_isaaclab` is used.
 
 - Then install the tracker:
+
 ```bash
 cd TextOpTracker
 python -m pip install -e source/textop_tracker
 ```
 
 - Replace `rsl_rl_lib` with the modified version
-    > This modified version includes a simplified implementation of [modular norm](https://arxiv.org/abs/2405.14813) for faster network optimization (~15%). If you don't want to use it, remove all `-MNMLP` in the following scripts. The pretrained checkpoint needs it to be evaluated in IsaacLab.
+  > This modified version includes a simplified implementation of [modular norm](https://arxiv.org/abs/2405.14813) for faster network optimization (~15%). If you don't want to use it, remove all `-MNMLP` in the following scripts. The pretrained
+  checkpoint needs it to be evaluated in IsaacLab.
 
 ```bash
 cd ..
@@ -128,12 +130,15 @@ python -c "import rsl_rl;print(rsl_rl)" # Verify installation
 ### Evaluation
 
 We have provided a pretrained checkpoint:
+
 * `TextOpTracker/logs/rsl_rl/Pretrained/checkpoints/model_75000.pt` is the pretrained policy that can be loaded in IsaacLab.
 * `TextOpTracker/logs/rsl_rl/Pretrained/checkpoints/latest.onnx` is exported ONNX version.
 
 #### IsaacLab Evaluation
+
 - Change `/path/to/experiment/model_100000.pt` to be policy checkpoint.
 - Change `/path/to/motion` to be your motion name, e.g. `Data10k-open/homejrhangmr_dataset_pbhc_contact_maskACCADFemale1General_c3dA1-Stand_posespkl`.
+
 ```bash
 python scripts/rsl_rl/play.py --task=Tracking-Flat-G1-ProjGravObs-MNMLP-v0 \
     --resume_path=/path/to/experiment/model_100000.pt \
@@ -146,22 +151,24 @@ python scripts/rsl_rl/play.py --task=Tracking-Flat-G1-ProjGravObs-MNMLP-v0 \
     env.commands.motion.enable_adaptive_sampling=True \
     --kit_args "--/log/level=error --/log/outputStreamLevel=error --/log/fileLogLevel=error"
 ```
+
 - An ONNX file will be exported to: `/path/to/experiment/exported/policy.onnx`.
-You can deploy this policy in MuJoCo or on the real robot.
+  You can deploy this policy in MuJoCo or on the real robot.
 
 #### Mujoco Evaluation
-> This sim-to-sim deployment is implemented in a simplified manner. The sim-to-sim pipeline in TextOpDeploy is much more tightly aligned with the real-robot system, offering a more realistic and system-consistent deployment workflow.
 
+> This sim-to-sim deployment is implemented in a simplified manner. The sim-to-sim pipeline in TextOpDeploy is much more tightly aligned with the real-robot system, offering a more realistic and system-consistent deployment workflow.
 
 ```bash
 python scripts/deploy_mujoco.py --motion_path=/path/to/motion.npz --policy_path=/path/to/policy.onnx
 ```
 
-
 ### Training
 
 Train from scratch
+
 - Change `--num_envs=16384`. `16384` envs need ~40GB GPU Memory.
+
 ```bash
 python scripts/rsl_rl/train.py --headless --log_project_name TextOpTracker \
 --task=Tracking-Flat-G1-ProjGravObs-MNMLP-v0 \
@@ -194,11 +201,12 @@ agent.policy.critic_hidden_dims=[2048,1024,512] \
 
 ```
 
-
 Continue Training or Finetuning from a pretrained checkpoint:
-- Ensure the `experiment_name` and configs about network architectures is consistent in pretrained checkpoint and this run. 
+
+- Ensure the `experiment_name` and configs about network architectures is consistent in pretrained checkpoint and this run.
 - Change `--load_run`, `--checkpoint` according to your pretrained checkpoint.
 - Other configs, e.g. for `motion_file`, reward functions, can be freely changed.
+
 ```bash
 python scripts/rsl_rl/train.py --headless --log_project_name BeyondMimic \
 --task=Tracking-Flat-G1-ProjGravObs-MNMLP-v0 \
@@ -235,23 +243,26 @@ env.rewards.overeffort.weight=-1.0 \
 --device=cuda:0
 ```
 
-
 ## TextOpDeploy
+
 TextOpDeploy supports:
+
 - `unitree_mujoco` simulator. A more realistic method for sim2sim validation.
 - Real G1 robot deployment
 
 > To run in the `unitree_mujoco` simulator, it's assumed you have a game joystick like xbox or switch. If you don't have it, you can still deploy the policy in real robot with unitree's joystick.
 
-
 ### Installation for Sim2Sim
 
 - Use the same Python env as RobotMDAR. Activate it all the time in this section.
+
 ```bash
 conda activate textop
 ```
-- Install [ros2](https://docs.ros.org/) ([foxy](https://docs.ros.org/en/foxy/index.html) as an example) following the official guide. 
+
+- Install [ros2](https://docs.ros.org/) ([foxy](https://docs.ros.org/en/foxy/index.html) as an example) following the official guide.
 - Install necessary python packages for ros2:
+
 ```bash
 pip install colcon-common-extensions empy==3.3.4 catkin_pkg lark-parser netifaces transforms3d pyyaml rosdep 
 ```
@@ -261,6 +272,7 @@ pip install colcon-common-extensions empy==3.3.4 catkin_pkg lark-parser netiface
 - Install `unitree_sdk2`, `mujoco` and `TextOpDeploy/src/unitree_mujoco`, following [unitree_mujoco's README](TextOpDeploy/src/unitree_mujoco/readme.md). Only **C++ Simulator** is needed. This version includes communication hooks for `textop_ctrl`.
 
 - After installing the above packages, you should see the G1's ros2 topics from mujoco simulator.
+
 ```bash
 export ROS_DOMAIN_ID=10 
 
@@ -274,6 +286,7 @@ ros2 topic list
 ```
 
 - Install `textop_ctrl`
+
 ```bash
 
 # Download ONNX Runtime from https://github.com/microsoft/onnxruntime/releases, choose correct platform and version. Extract it to TextOpDeploy/src/textop_ctrl/thirdparty/
@@ -294,6 +307,7 @@ source install/setup.bash
 ```
 
 Environment Activation: in every time before running
+
 ```bash
 conda activate textop
 cd TextOpDeploy/src/unitree_ros2/ && source setup.sh && cd -
@@ -306,6 +320,7 @@ export ROS_DOMAIN_ID=0
 ### Run Inference in Sim2Sim
 
 #### Test ONNX Controller without RobotMDAR
+
 ```bash
 # Open terminal-1, activate the environment
 ros2 launch textop_ctrl textop_onnx_controller.launch.py \
@@ -323,6 +338,7 @@ python src/byd_ctrl/scripts/npz_motion_publisher.py --mode single TextOpDeploy/s
 ```
 
 #### Running Policy with RobotMDAR
+
 ```bash
 # Open terminal-1, start textop_onnx_controller
 
@@ -342,7 +358,6 @@ python src/byd_ctrl/scripts/motion_watcher.py
 ros2 topic pub /dar/toggle builtin_interfaces/msg/Time "{sec: 0, nanosec: 0}" -t 1 -r 10 
 ```
 
-
 ### Deployment in Real Robot
 
 This guide assumes you have a host PC with a NVIDIA GPU and a G1-Edu robot connected via Ethernet or a wireless network.
@@ -350,11 +365,13 @@ This guide assumes you have a host PC with a NVIDIA GPU and a G1-Edu robot conne
 In the following, we will run the Tracker policy on G1's onboard computer (192.168.123.164, called G1 for short) and run the RobotMDAR on PC. The PC sends motion commands to the G1 over the network.
 
 Installation
+
 1. In PC, install everything the same as in Sim2Sim.
 2. In G1's onboard computer:
     1. Download `TextOpDeploy`.
     1. Pull `unitree_ros2` and `cnpy` as usual. No need to install `unitree_ros2`.
     2. Install `textop_ctrl`. Compile the controller with the appropriate ONNX Runtime version for `aarch64`.
+
 ```bash
 # Download ONNX Runtime from https://github.com/microsoft/onnxruntime/releases.
 mkdir TextOpDeploy/src/textop_ctrl/thirdparty && cd TextOpDeploy/src/textop_ctrl/thirdparty
@@ -373,7 +390,9 @@ colcon build --packages-select textop_ctrl unitree_go unitree_hg CNPY
 # Activate the workspace environment
 source install/setup.bash
 ```
+
 3. Ensure that ROS2 is communicating correctly over the network:
+
 ```bash
 # In both PC and G1: 
 export ROS_DOMAIN_ID=0 
@@ -382,25 +401,30 @@ ros2 topic list
 ```
 
 Startup Process
-1. PAY SPECIAL ATTENTION TO EVERYTHING'S SAFETY. 
-    1. Ensure the robot is operating in an open area and is stable before engaging the policy. 
-    2. Ensure the Tracker and RobotMDAR policy works well in simulation. 
-    3. Ensure you fully understand the operating procedure and code logic. 
+
+1. PAY SPECIAL ATTENTION TO EVERYTHING'S SAFETY.
+    1. Ensure the robot is operating in an open area and is stable before engaging the policy.
+    2. Ensure the Tracker and RobotMDAR policy works well in simulation.
+    3. Ensure you fully understand the operating procedure and code logic.
     4. We cannot ensure the pretrained models work well in your setting.
 2. Start G1. Use unitree's joystick to enter **Debug Mode** by pressing `L2+R2`, `L2+A`, `L2+B`.
 3. In G1, start the controller node by this. G1 will enter Zero Torque Mode. Ensure its pose is normal.
+
 ```bash
 export LD_LIBRARY_PATH=$(pwd)/src/textop_ctrl/thirdparty/onnxruntime-linux-aarch64-1.22.0/lib:$LD_LIBRARY_PATH
 source install/setup.bash
 ros2 launch textop_ctrl textop_onnx_controller.launch.py \
     onnx_path:=/path/to/policy.onnx
 ```
+
 4. In PC, start the `rmdar` and `motion_watcher` the same as in Sim2Sim. You can also visualize the state of real robot by:
+
 ```bash
 python src/byd_ctrl/scripts/show_realrobot.py 
 ```
+
 5. Press `Start`. G1 will smoothly go to a default pose. Place it on flat ground and it should stand still.
-6. Press `A`. The Tracker and RobotMDAR policy will start inference in the same time. G1 will track the reference motion corresponding to default command `stand`. 
+6. Press `A`. The Tracker and RobotMDAR policy will start inference in the same time. G1 will track the reference motion corresponding to default command `stand`.
     - ATTENTION: In some rare cases the reference motion will step forward even if the text command is `stand`
     - To stop the robot:
         - The system will auto exit if any of the joint angles or joint velocitys exceeds the safety thresholds, defined in `TextOp\TextOpDeploy\src\textop_ctrl\src\textop_onnx_controller.cpp`
