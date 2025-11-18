@@ -140,13 +140,16 @@ class AutoMldVae(nn.Module):
         """
         Encode future motion into latent distribution
 
-        [bs, H+F, nfeats], H = 历史帧数, F = 未来帧数
+        :param future_motion: [bs, nfuture, nfeats]
+        :param history_motion: [bs, nhistory, nfeats]
+        :param scale_latent: bool, whether to scale the latent vector
+        :return: latent: [latent_size, bs, latent_dim]
+                 dist: torch Distribution object
         """
         bs, nfuture, nfeats = future_motion.shape
         nhistory = history_motion.shape[1]
 
-        x = torch.cat((history_motion, future_motion),
-                      dim=1)  # [bs, H+F, nfeats]
+        x = torch.cat((history_motion, future_motion), dim=1)  # [bs, H+F, nfeats]
         # Embed each human poses into latent vectors
         # breakpoint()
 
@@ -191,6 +194,15 @@ class AutoMldVae(nn.Module):
             nfuture,
             scale_latent: bool = False,
     ):
+        """
+        Decode latent vector into future motion
+
+        :param z: [latent_size, bs, latent_dim]
+        :param history_motion: [bs, nhistory, nfeats]
+        :param nfuture: int, number of future frames to predict
+        :param scale_latent: bool, whether to scale the latent vector
+        :return: feats: [bs, nfuture, nfeats]
+        """
         # nfuture = 8
         bs = history_motion.shape[0]
 

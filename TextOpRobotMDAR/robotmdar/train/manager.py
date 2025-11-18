@@ -610,12 +610,12 @@ class MVAEManager(BaseManager, GeometryLoss):
                   future_motion_pred,
                   dist,
                   history_motion=None) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        terms = {}
+        loss = {}
         extras = {}
 
         # 重构损失
         rec_loss = self.rec_criterion(future_motion_pred, future_motion_gt)
-        terms['rec'] = rec_loss
+        loss['rec'] = rec_loss
 
         # if self.loss_weight['smooth'] > 0.0:
         #     recon_diff = future_motion_pred[:, 1:, :] - future_motion_pred[:, :-1, :]
@@ -628,7 +628,7 @@ class MVAEManager(BaseManager, GeometryLoss):
         dist_ref = torch.distributions.Normal(mu_ref, scale_ref)
         kl_loss = torch.distributions.kl_divergence(dist, dist_ref)
         kl_loss = kl_loss.mean()
-        terms['kl'] = kl_loss
+        loss['kl'] = kl_loss
 
         # 使用继承的几何损失计算方法
         if FeatureVersion == 4:
@@ -652,12 +652,13 @@ class MVAEManager(BaseManager, GeometryLoss):
             )
 
         # geometry_terms = self.calc_geometry_loss_v2(future_motion_pred, future_motion_gt, history_motion)
-        terms.update(geometry_terms)
+        loss.update(geometry_terms)
         extras.update(geometry_extras)
 
-        total_loss = sum(self.loss_weight[k] * v for k, v in terms.items())
-        terms['total'] = total_loss
-        return terms, extras
+        total_loss = sum(self.loss_weight[k] * v for k, v in loss.items())
+        loss['total'] = total_loss
+
+        return loss, extras
 
     def save_model(self) -> None:
         save_path = self.save_dir / f"ckpt_{self.step}.pth"

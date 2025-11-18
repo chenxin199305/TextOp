@@ -36,12 +36,12 @@ A: B, H, T, D 是典型的 动作序列 / 时序模型的张量维度命名
 """
 
 import torch
+
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 
 from robotmdar.dtype import seed, logger
 from robotmdar.dtype.abc import VAE, Dataset, Denoiser, Diffusion, Optimizer, SSampler
-
 from robotmdar.train.manager import DARManager
 
 USE_VAE = True
@@ -73,6 +73,9 @@ def main(cfg: DictConfig):
     # （hold_model 可能会做模型移动到设备、封装到 manager 内部的引用、创建检查点结构等）。
     manager.hold_model(vae, denoiser, optimizer, train_data)
 
+    train_dataiter = iter(train_data)
+    val_dataiter = iter(val_data)
+
     num_primitive: int = cfg.data.num_primitive
     future_len: int = cfg.data.future_len
     history_len: int = cfg.data.history_len
@@ -82,13 +85,14 @@ def main(cfg: DictConfig):
         f"each with future length {future_len} and history length {history_len}."
     )
 
-    train_dataiter = iter(train_data)
-    val_dataiter = iter(val_data)
-
     # Training loop following train_mvae.py approach
     # 以 manager 的真值（通常 while manager: 等价于 while not manager.should_stop()）
     # 控制训练循环，manager 负责知道何时终止训练（例如达到最大步数或收到早停信号）。
     while manager:
+
+        # --------------------------------------------------
+
+        # Training Loop
         denoiser.train()
         batch = next(train_dataiter)
 
@@ -124,12 +128,10 @@ def main(cfg: DictConfig):
 
             if USE_VAE:
                 # Encode using VAE
-                latent_gt, _ = vae.encode(
-                    future_motion=future_motion_gt,
-                    history_motion=history_motion
-                )  # [T=1, B, D]   latent_gt: (1, 512, 128)
-
+                latent_gt, _ = vae.encode(future_motion=future_motion_gt,
+                                          history_motion=history_motion)  # [T=1, B, D]   latent_gt: (1, 512, 128)
                 x_start = latent_gt.permute(1, 0, 2)  # [B, T=1, D]
+
             else:
                 latent_gt = None
                 x_start = torch.cat((history_motion, future_motion_gt), dim=1)
@@ -187,9 +189,10 @@ def main(cfg: DictConfig):
 
             # optimizer.zero_grad()：清零梯度。
             # loss.backward()：反向传播计算梯度。
-            # 遍历 denoiser 的参数检查是否存在 NaN 或 Inf 的梯度（防止梯度爆炸或数值问题）。如果检测到则 has_nan_grad = True。
             optimizer.zero_grad()
             loss.backward()
+
+            # 遍历 denoiser 的参数检查是否存在 NaN 或 Inf 的梯度（防止梯度爆炸或数值问题）。如果检测到则 has_nan_grad = True。
             has_nan_grad = False
             for param in denoiser.parameters():
                 if param.grad is not None:
@@ -245,18 +248,13 @@ def main(cfg: DictConfig):
             # manager 可能在此记录到日志、写入 TensorBoard、保存检查点、更新学习率调度等。
             manager.post_step(
                 is_eval=False,
-                loss_dict={
-                    k: v.detach().cpu()
-                    for k, v in loss_dict.items()
-                },
-                extras={
-                    k: v.detach().cpu() if isinstance(v, torch.Tensor) else v
-                    for k, v in extras.items()
-                })
+                loss_dict={k: v.detach().cpu() for k, v in loss_dict.items()},
+                extras={k: v.detach().cpu() if isinstance(v, torch.Tensor) else v for k, v in extras.items()},
+            )
 
         # --------------------------------------------------
 
-        # Validation loop
+        # Evaluation Loop
         denoiser.eval()
         while manager.should_eval():
             batch = next(val_dataiter)
@@ -335,3 +333,5 @@ def main(cfg: DictConfig):
                             v.detach().cpu() if isinstance(v, torch.Tensor) else v
                         for k, v in extras.items()
                     })
+
+        # --------------------------------------------------
