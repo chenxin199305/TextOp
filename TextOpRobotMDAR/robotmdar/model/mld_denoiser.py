@@ -7,6 +7,10 @@ import loralib as lora
 
 
 class DenoiserMLP(nn.Module):
+    """
+    基于 MLP 的去噪网络
+    通过时间步嵌入、文本条件嵌入和历史运动嵌入来预测噪声
+    """
 
     def __init__(self,
                  h_dim=512,
@@ -18,25 +22,36 @@ class DenoiserMLP(nn.Module):
                  noise_shape=(1, 128),
                  **kargs):
         super().__init__()
-        self.h_dim = h_dim
+
+        # 类定义和初始化
+        self.h_dim = h_dim  # 隐层维度。
         self.dropout = dropout
         self.n_blocks = n_blocks
         self.activation = activation
 
-        self.history_shape = history_shape
-        self.noise_shape = noise_shape
-        self.clip_dim = clip_dim
+        self.clip_dim = clip_dim  # 文本/条件嵌入维度（一般是 CLIP 文本向量）
+        self.history_shape = history_shape  # 历史运动数据的形状（时间步 × 特征维度）
+        self.noise_shape = noise_shape  # 噪声输入的形状
 
         # probability of masking the conditional text
+        # cond_mask_prob 是训练时随机屏蔽条件输入的概率（做类似 classifier-free guidance）。
         self.cond_mask_prob = kargs.get('cond_mask_prob', 0.)
         print('cond_mask_prob:', self.cond_mask_prob)
 
-        self.sequence_pos_encoder = PositionalEncoding(self.h_dim,
-                                                       self.dropout)
-        self.embed_timestep = TimestepEmbedder(self.h_dim,
-                                               self.sequence_pos_encoder)
-        input_dim = self.h_dim + self.clip_dim + np.prod(
-            history_shape) + np.prod(noise_shape)
+        # Positional Encoding 与时间嵌入
+        # PositionalEncoding：为序列添加位置编码，类似 Transformer 中使用的方式。
+        # TimestepEmbedder：将时间步 t 嵌入到向量空间，用于条件时间信息（在扩散模型里常见）。
+        self.sequence_pos_encoder = PositionalEncoding(self.h_dim, self.dropout)
+        self.embed_timestep = TimestepEmbedder(self.h_dim, self.sequence_pos_encoder)
+
+        # 输入维度和线性投影
+        # 模型输入是由 4 个部分拼接而成的：
+        # - 时间步嵌入 [B, h_dim]
+        # - 文本条件 embedding [B, clip_dim]
+        # - 历史运动 [B, history_dim]
+        # - 当前噪声 [B, noise_dim]
+        # 之后通过一个线性层投影到隐藏维度 h_dim。
+        input_dim = self.h_dim + self.clip_dim + np.prod(history_shape) + np.prod(noise_shape)
         self.input_project = nn.Linear(input_dim, self.h_dim)
 
         self.mlp = MLPBlock(h_dim=h_dim,
@@ -45,12 +60,20 @@ class DenoiserMLP(nn.Module):
                             actfun=activation)
 
     def parameters_wo_clip(self):
+        """
+        训练时可以选择不更新 CLIP 模型的参数，只训练 denoiser。
+        """
         return [
             p for name, p in self.named_parameters()
             if not name.startswith('clip_model.')
         ]
 
     def mask_cond(self, cond, force_mask=False):
+        """
+        功能：训练时随机屏蔽文本/条件嵌入。
+        用途：实现类似 classifier-free guidance，让模型可以在无条件和有条件两种模式下学习。
+        force_mask：可以强制屏蔽条件（用于生成无条件样本）。
+        """
         bs, d = cond.shape
         if force_mask:
             return torch.zeros_like(cond)
@@ -64,26 +87,23 @@ class DenoiserMLP(nn.Module):
 
     def forward(self, x_t, timesteps, y=None):
         """
-        x_t: [B, T=1, D]
-        timesteps: [batch_size] (int)
+        预测噪声
+        x_t: [B, T=1, D] 当前带噪声的输入
+        timesteps: [batch_size] (int) 时间步
+        y: dict, 包含条件信息，如文本嵌入和历史运动
         """
         batch_size = x_t.shape[0]
         emb_time = self.embed_timestep(timesteps).squeeze(0)  # [bs, h_dim]
-        emb_history = y['history_motion_normalized'].reshape(
-            batch_size, np.prod(self.history_shape))  # [bs, History * nfeats]
+        emb_history = y['history_motion_normalized'].reshape(batch_size, np.prod(self.history_shape))  # [bs, History * nfeats]
+
         force_mask = y.get('uncond', False)
-        emb_text = self.mask_cond(y['text_embedding'],
-                                  force_mask=force_mask)  # [bs, clip_dim]
-        emb_noise = x_t.reshape(batch_size,
-                                np.prod(self.noise_shape))  # [bs, noise_dim]
+        emb_text = self.mask_cond(y['text_embedding'], force_mask=force_mask)  # [bs, clip_dim]
+        emb_noise = x_t.reshape(batch_size, np.prod(self.noise_shape))  # [bs, noise_dim]
         # print('emb_time shape:', emb_time.shape, 'emb_text shape:', emb_text.shape, 'emb_history shape:', emb_history.shape, 'emb_noise shape:', emb_noise.shape)
 
-        input_embed = torch.cat((emb_time, emb_text, emb_history, emb_noise),
-                                dim=1)  # [bs, input_dim]
+        input_embed = torch.cat((emb_time, emb_text, emb_history, emb_noise), dim=1)  # [bs, input_dim]
         output = self.mlp(self.input_project(input_embed))  # [bs, noise_dim]
-        output = output.reshape(
-            batch_size,
-            *self.noise_shape)  # [B, noise_shape[0], noise_shape[1]]
+        output = output.reshape(batch_size, *self.noise_shape)  # [B, noise_shape[0], noise_shape[1]]
         # print('output shape:', output.shape)
 
         return output
@@ -213,13 +233,27 @@ class PositionalEncoding(nn.Module):
 
 
 class TimestepEmbedder(nn.Module):
+    """
+    将时间步嵌入到向量空间，用于条件时间信息（在扩散模型里常见）
+    """
 
     def __init__(self, h_dim, sequence_pos_encoder):
         super().__init__()
         self.h_dim = h_dim
+
+        # 传入一个 PositionalEncoding 对象，用于获取时间步的正弦/余弦编码。
+        # 注意：这个类本身不生成位置编码，而是依赖外部的 sequence_pos_encoder 提供编码。
         self.sequence_pos_encoder = sequence_pos_encoder
 
         time_embed_dim = self.h_dim
+
+        """
+        self.time_embed 是一个小型 MLP：
+        - 输入线性映射：h_dim → h_dim
+        - 激活函数：SiLU（Swish 激活函数，smooth version of ReLU，连续可导且在扩散模型里常用）
+        - 输出线性映射：h_dim → h_dim
+        目的：增强时间步嵌入的非线性表达能力，让网络更灵活地处理时间信息。
+        """
         self.time_embed = nn.Sequential(
             nn.Linear(self.h_dim, time_embed_dim),
             nn.SiLU(),
@@ -227,8 +261,7 @@ class TimestepEmbedder(nn.Module):
         )
 
     def forward(self, timesteps):
-        return self.time_embed(
-            self.sequence_pos_encoder.pe[timesteps]).permute(1, 0, 2)
+        return self.time_embed(self.sequence_pos_encoder.pe[timesteps]).permute(1, 0, 2)
 
 
 class MLP(nn.Module):
