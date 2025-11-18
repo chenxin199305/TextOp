@@ -16,6 +16,43 @@ from torch import Tensor, nn
 
 
 class SkipTransformerEncoder(nn.Module):
+    """
+    Skip Transformer Encoder with skip connections between input and output blocks
+
+    带 U-Net 式 skip connection
+    输入 → 下采样式 forward path → 中间层 → skip 反向融合 → 输出
+
+    总体网络结构图（例子：9层）
+    Layer1
+     ↓
+    Layer2
+     ↓
+    Layer3
+     ↓
+    Layer4  --------------┐
+            |             |
+            v             |
+         Middle           |
+            |             |
+            |           skip ↓
+          concat + FC     |
+            |             |
+         Layer6           |
+            |           skip ↓
+         concat + FC      |
+            |             |
+         Layer7           |
+            |           skip ↓
+         concat + FC      |
+            |             |
+         Layer8           |
+            |            skip ↓
+         concat + FC      |
+            |             |
+         Layer9 <---------┘
+
+    """
+
     def __init__(self, encoder_layer, num_layers, norm=None):
         super().__init__()
         self.d_model = encoder_layer.d_model
@@ -23,13 +60,14 @@ class SkipTransformerEncoder(nn.Module):
         self.num_layers = num_layers
         self.norm = norm
 
+        # 必须是奇数层
         assert num_layers % 2 == 1
 
-        num_block = (num_layers-1)//2
+        num_block = (num_layers - 1) // 2
         self.input_blocks = _get_clones(encoder_layer, num_block)
-        self.middle_block = _get_clone(encoder_layer)
+        self.middle_block = _get_clone(encoder_layer)  # 中间层，唯一的一层
         self.output_blocks = _get_clones(encoder_layer, num_block)
-        self.linear_blocks = _get_clones(nn.Linear(2*self.d_model, self.d_model), num_block)
+        self.linear_blocks = _get_clones(nn.Linear(2 * self.d_model, self.d_model), num_block)
 
         self._reset_parameters()
 
@@ -42,42 +80,57 @@ class SkipTransformerEncoder(nn.Module):
                 mask: Optional[Tensor] = None,
                 src_key_padding_mask: Optional[Tensor] = None,
                 pos: Optional[Tensor] = None):
+        """
+        Args:
+            src: the sequence to the encoder (required), shape: (S, N, E)
+            mask: the mask for the src sequence (optional), shape: (S, S)
+            src_key_padding_mask: the mask for the src keys per batch (optional), shape: (N, S)
+            pos: the positional encoding for the src sequence (optional), shape: (S, N, E)
+        """
         x = src
 
         xs = []
         for module in self.input_blocks:
-            x = module(x, src_mask=mask,
-                           src_key_padding_mask=src_key_padding_mask, pos=pos)
-            xs.append(x)
+            x = module(x,
+                       src_mask=mask,
+                       src_key_padding_mask=src_key_padding_mask,
+                       pos=pos)
+            xs.append(x)  # 保存每一层的输出用于 skip connection
 
-        x = self.middle_block(x, src_mask=mask,
-                           src_key_padding_mask=src_key_padding_mask, pos=pos)
+        x = self.middle_block(x,
+                              src_mask=mask,
+                              src_key_padding_mask=src_key_padding_mask,
+                              pos=pos)
 
         for (module, linear) in zip(self.output_blocks, self.linear_blocks):
-            x = torch.cat([x, xs.pop()], dim=-1)
-            x = linear(x)
-            x = module(x, src_mask=mask,
-                           src_key_padding_mask=src_key_padding_mask, pos=pos)
+            x = torch.cat([x, xs.pop()], dim=-1)  # # skip feature 接回来
+            x = linear(x)  # 融合
+            x = module(x,
+                       src_mask=mask,
+                       src_key_padding_mask=src_key_padding_mask,
+                       pos=pos)
 
         if self.norm is not None:
             x = self.norm(x)
+
         return x
+
 
 class SkipTransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers, norm=None):
         super().__init__()
         self.d_model = decoder_layer.d_model
-        
+
         self.num_layers = num_layers
         self.norm = norm
 
         assert num_layers % 2 == 1
 
-        num_block = (num_layers-1)//2
+        num_block = (num_layers - 1) // 2
         self.input_blocks = _get_clones(decoder_layer, num_block)
         self.middle_block = _get_clone(decoder_layer)
         self.output_blocks = _get_clones(decoder_layer, num_block)
-        self.linear_blocks = _get_clones(nn.Linear(2*self.d_model, self.d_model), num_block)
+        self.linear_blocks = _get_clones(nn.Linear(2 * self.d_model, self.d_model), num_block)
 
         self._reset_parameters()
 
@@ -98,31 +151,32 @@ class SkipTransformerDecoder(nn.Module):
         xs = []
         for module in self.input_blocks:
             x = module(x, memory, tgt_mask=tgt_mask,
-                           memory_mask=memory_mask,
-                           tgt_key_padding_mask=tgt_key_padding_mask,
-                           memory_key_padding_mask=memory_key_padding_mask,
-                           pos=pos, query_pos=query_pos)
+                       memory_mask=memory_mask,
+                       tgt_key_padding_mask=tgt_key_padding_mask,
+                       memory_key_padding_mask=memory_key_padding_mask,
+                       pos=pos, query_pos=query_pos)
             xs.append(x)
 
         x = self.middle_block(x, memory, tgt_mask=tgt_mask,
-                           memory_mask=memory_mask,
-                           tgt_key_padding_mask=tgt_key_padding_mask,
-                           memory_key_padding_mask=memory_key_padding_mask,
-                           pos=pos, query_pos=query_pos)
+                              memory_mask=memory_mask,
+                              tgt_key_padding_mask=tgt_key_padding_mask,
+                              memory_key_padding_mask=memory_key_padding_mask,
+                              pos=pos, query_pos=query_pos)
 
         for (module, linear) in zip(self.output_blocks, self.linear_blocks):
             x = torch.cat([x, xs.pop()], dim=-1)
             x = linear(x)
             x = module(x, memory, tgt_mask=tgt_mask,
-                           memory_mask=memory_mask,
-                           tgt_key_padding_mask=tgt_key_padding_mask,
-                           memory_key_padding_mask=memory_key_padding_mask,
-                           pos=pos, query_pos=query_pos)
+                       memory_mask=memory_mask,
+                       tgt_key_padding_mask=tgt_key_padding_mask,
+                       memory_key_padding_mask=memory_key_padding_mask,
+                       pos=pos, query_pos=query_pos)
 
         if self.norm is not None:
             x = self.norm(x)
 
         return x
+
 
 class Transformer(nn.Module):
 
@@ -295,12 +349,25 @@ class TransformerEncoderLayer(nn.Module):
 
 
 class TransformerDecoderLayer(nn.Module):
+    """
+    总体结构
+    每一层 Decoder Layer包含 三个子结构（对应引用论文 Attention Is All You Need）：
+    - Masked Self-Attention    通过内部序列自己注意自己（但有因果 mask）
+    - Cross-Attention (Decoder-Encoder Attention)    让 decoder 的 token attend encoder memory
+    - Feedforward MLP    两层线性 + 激活
+
+    每一步都带：
+    - 残差连接
+    - LayerNorm
+    - Dropout
+    """
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+
         # Implementation of Feedforward model
         self.d_model = d_model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -327,7 +394,6 @@ class TransformerDecoderLayer(nn.Module):
                      memory_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None,
                      query_pos: Optional[Tensor] = None):
-                     
         q = k = self.with_pos_embed(tgt, query_pos)
         tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask,
                               key_padding_mask=tgt_key_padding_mask)[0]
@@ -383,6 +449,7 @@ class TransformerDecoderLayer(nn.Module):
 
 def _get_clone(module):
     return copy.deepcopy(module)
+
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])

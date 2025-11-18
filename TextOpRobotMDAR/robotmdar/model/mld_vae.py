@@ -39,18 +39,18 @@ class AutoMldVae(nn.Module):
 
     def __init__(
             self,
-            nfeats: int,
-            latent_dim: list = [1, 256],
-            h_dim: int = 512,
-            ff_size: int = 1024,
-            num_layers: int = 9,
+            nfeats: int,  # 每帧姿态特征维度
+            latent_dim: list = [1, 256],  # [latent token 数, token 特征维度]
+            h_dim: int = 512,  # Transformer hidden dim
+            ff_size: int = 1024,  # FFN expansion
+            num_layers: int = 9,  # Transformer 层数
             num_heads: int = 4,
             dropout: float = 0.1,
-            arch: str = "all_encoder",
+            arch: str = "all_encoder",  # 或 "encoder_decoder"
             normalize_before: bool = False,
             activation: str = "gelu",
             position_embedding: str = "learned",
-            use_patcher=False,
+            use_patcher=False,  # 是否使用 wavelet patch 技术
             patch_size=1,
             patch_method="haar",
     ) -> None:
@@ -79,10 +79,11 @@ class AutoMldVae(nn.Module):
             self.wavelet_transform = Patcher1D(patch_size, patch_method)
             self.inverse_wavelet_transform = UnPatcher1D(patch_size, patch_method)
 
-        self.query_pos_encoder = build_position_encoding(
-            self.h_dim, position_embedding=position_embedding)
-        self.query_pos_decoder = build_position_encoding(
-            self.h_dim, position_embedding=position_embedding)
+        # 位置编码
+        self.query_pos_encoder = build_position_encoding(self.h_dim,
+                                                         position_embedding=position_embedding)
+        self.query_pos_decoder = build_position_encoding(self.h_dim,
+                                                         position_embedding=position_embedding)
 
         encoder_layer = TransformerEncoderLayer(
             self.h_dim,
@@ -93,13 +94,15 @@ class AutoMldVae(nn.Module):
             normalize_before,
         )
         encoder_norm = nn.LayerNorm(self.h_dim)
-        self.encoder = SkipTransformerEncoder(encoder_layer, num_layers,
+        self.encoder = SkipTransformerEncoder(encoder_layer,
+                                              num_layers,
                                               encoder_norm)
         self.encoder_latent_proj = nn.Linear(self.h_dim, self.latent_dim)
 
         if self.arch == "all_encoder":
             decoder_norm = nn.LayerNorm(self.h_dim)
-            self.decoder = SkipTransformerEncoder(encoder_layer, num_layers,
+            self.decoder = SkipTransformerEncoder(encoder_layer,
+                                                  num_layers,
                                                   decoder_norm)
         elif self.arch == "encoder_decoder":
             decoder_layer = TransformerDecoderLayer(
