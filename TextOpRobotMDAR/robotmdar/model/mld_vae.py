@@ -118,10 +118,12 @@ class AutoMldVae(nn.Module):
                                                   decoder_norm)
         else:
             raise ValueError("Not support architecture!")
-        self.decoder_latent_proj = nn.Linear(self.latent_dim, self.h_dim)
 
-        self.global_motion_token = nn.Parameter(
-            torch.randn(self.latent_size * 2, self.h_dim))
+        self.decoder_latent_proj = nn.Linear(self.latent_dim, self.h_dim)  # # latent_dim -> h_dim
+
+        # 用于建模 latent distribution
+        # 2*latent_size 是为了 split mu 和 logvar
+        self.global_motion_token = nn.Parameter(torch.randn(self.latent_size * 2, self.h_dim))
 
         self.skel_embedding = nn.Linear(input_feats, self.h_dim)
         self.final_layer = nn.Linear(self.h_dim, output_feats)
@@ -135,6 +137,11 @@ class AutoMldVae(nn.Module):
             history_motion,
             scale_latent: bool = False,
     ) -> Tuple[Tensor, Distribution]:
+        """
+        Encode future motion into latent distribution
+
+        [bs, H+F, nfeats], H = 历史帧数, F = 未来帧数
+        """
         bs, nfuture, nfeats = future_motion.shape
         nhistory = history_motion.shape[1]
 
@@ -157,18 +164,15 @@ class AutoMldVae(nn.Module):
 
         # adding the embedding token for all sequences
         xseq = torch.cat((dist, x), 0)
-
         xseq = self.query_pos_encoder(xseq)
+
         dist = self.encoder(xseq)[:dist.shape[0]]  # [2*latent_size, bs, h_dim]
-        dist = self.encoder_latent_proj(
-            dist)  # [2*latent_size, bs, latent_dim]
+        dist = self.encoder_latent_proj(dist)  # [2*latent_size, bs, latent_dim]
 
         # content distribution
         mu = dist[0:self.latent_size, ...]
         logvar = dist[self.latent_size:, ...]
-        logvar = torch.clamp(
-            logvar, min=-10, max=10
-        )  # avoid numerical issues, otherwise denoiser rollout can break
+        logvar = torch.clamp(logvar, min=-10, max=10)  # avoid numerical issues, otherwise denoiser rollout can break
         # if torch.isnan(mu).any() or torch.isinf(mu).any() or torch.isnan(logvar).any() or torch.isinf(logvar).any():
         #     pdb.set_trace()
 
