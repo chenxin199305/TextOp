@@ -96,10 +96,10 @@ class BaseManager(ABC):
             self.optimizer.param_groups[0]["lr"] = lrnow
 
     def post_step(
-        self,
-        is_eval: bool = False,
-        loss_dict: Dict[str, torch.Tensor] = {},
-        extras: Optional[Dict[str, torch.Tensor]] = None
+            self,
+            is_eval: bool = False,
+            loss_dict: Dict[str, torch.Tensor] = {},
+            extras: Optional[Dict[str, torch.Tensor]] = None
     ) -> None:
         """每步训练后调用"""
         if extras is None:
@@ -268,10 +268,10 @@ class BaseManager(ABC):
         return torch.rand(1).item() < prob
 
     def choose_history(
-        self,
-        gt_history: torch.Tensor,
-        prev_motion: Optional[torch.Tensor] = None,
-        history_len: Optional[int] = None
+            self,
+            gt_history: torch.Tensor,
+            prev_motion: Optional[torch.Tensor] = None,
+            history_len: Optional[int] = None
     ) -> torch.Tensor:
         """
         统一的history选择函数
@@ -311,7 +311,6 @@ class BaseManager(ABC):
 
 
 class GeometryLoss:
-
     dataset: Any
     rec_criterion: nn.HuberLoss
 
@@ -353,13 +352,13 @@ class GeometryLoss:
         return angle.mean()  # 或 angle^2.mean() 视具体任务而定
 
     def calc_geometry_loss(
-        self,
-        future_motion_pred,
-        future_motion_gt,
-        history_motion=None,
-        smooth=False,
-        quantize=False,
-        drift=False
+            self,
+            future_motion_pred,
+            future_motion_gt,
+            history_motion=None,
+            smooth=False,
+            quantize=False,
+            drift=False
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """计算几何损失"""
         terms = {}
@@ -483,7 +482,7 @@ class GeometryLoss:
             pred_rot_delta = pred_feature_dict['rot_delta_6d'][:, :-1, :]
             calc_joints_delta = pred_feature_dict['joints'][:, 1:, :] - pred_feature_dict['joints'][:, :-1, :]
             calc_transl_delta = pred_feature_dict['root_trans_offset'][:, 1:, :] - pred_feature_dict['root_trans_offset'
-                                                                                                    ][:, :-1, :]
+            ][:, :-1, :]
 
             # breakpoint()
             pred_rot = quaternion_to_matrix(xyzw_to_wxyz(pred_feature_dict['root_rot']))
@@ -784,14 +783,14 @@ class DARManager(BaseManager, GeometryLoss):
         logger.info(f"(latent_mean, latent_std): {self.vae.latent_mean}, {self.vae.latent_std}")
 
     def calc_loss(
-        self,
-        future_motion_gt,
-        future_motion_pred,
-        latent,
-        dist=None,
-        latent_pred=None,
-        weights=None,
-        history_motion=None
+            self,
+            future_motion_gt,
+            future_motion_pred,
+            latent,
+            dist=None,
+            latent_pred=None,
+            weights=None,
+            history_motion=None
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         terms = {}
         extras = {}

@@ -36,7 +36,7 @@ manager:
 
   loss_weight:
     rec: 1.0
-    kl: 1e-4 
+    kl: 1e-4
     latent_rec: 1.0
     body_trans: 0.05
     body_rot: 1e-2

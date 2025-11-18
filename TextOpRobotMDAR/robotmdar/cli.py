@@ -6,14 +6,13 @@ RobotMDAR CLI - Simple entry point using Hydra framework
 import os
 
 os.environ.setdefault("HYDRA_FULL_ERROR", "1")
+
 import sys
 from pathlib import Path
+from importlib import import_module
 
 import hydra
-from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
-
-from robotmdar.dtype.debug import pdb_decorator
 
 
 @hydra.main(
@@ -22,10 +21,6 @@ from robotmdar.dtype.debug import pdb_decorator
     version_base="1.1",
 )
 def main(cfg: DictConfig):
-
-    # Get the task from config
-    task = cfg.task
-
     print("-=-" * 30)
     print(OmegaConf.to_yaml(cfg))
     print("=-=" * 30)
@@ -41,16 +36,17 @@ def main(cfg: DictConfig):
         "noise-opt": "opt.noise_opt",
     }
 
-    if task in task_modules:
-        module = __import__('robotmdar.' + task_modules[task],
-                            fromlist=['main'])
-        run = module.main
-    else:
-        print(f"Unknown task: {task}")
-        print("Available tasks: " + ", ".join(task_modules.keys()))
-        sys.exit(1)
+    task = cfg.task
+    task_path = task_modules.get(task)
 
-    (run)(cfg)
+    if task_path is None:
+        raise ValueError(
+            f"Unknown task: {task}\n"
+            f"Available tasks: {', '.join(task_modules.keys())}"
+        )
+
+    module = import_module(f"robotmdar.{task_path}")
+    module.main(cfg)
 
 
 if __name__ == "__main__":

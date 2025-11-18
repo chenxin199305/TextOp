@@ -1,6 +1,6 @@
 _target_: robotmdar.model.mld_vae.AutoMldVae
 nfeats: ${..nfeats}
-latent_dim: [1, 128]
+latent_dim: [ 1, 128 ]
 h_dim: 512    # 512
 ff_size: 1024     # 1024
 num_layers: 9

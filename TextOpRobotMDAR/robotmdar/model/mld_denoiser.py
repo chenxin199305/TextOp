@@ -57,7 +57,7 @@ class DenoiserMLP(nn.Module):
         elif self.training and self.cond_mask_prob > 0.:
             mask = torch.bernoulli(
                 torch.ones(bs, device=cond.device) * self.cond_mask_prob).view(
-                    bs, 1)  # 1-> use null_cond, 0-> use real cond
+                bs, 1)  # 1-> use null_cond, 0-> use real cond
             return cond * (1. - mask)
         else:
             return cond
@@ -101,7 +101,7 @@ class DenoiserTransformer(nn.Module):
                  clip_dim=512,
                  history_shape=(2, 276),
                  noise_shape=(1, 128),
-                 use_vae = True,
+                 use_vae=True,
                  **kargs):
         super().__init__()
         self.h_dim = h_dim
@@ -122,7 +122,7 @@ class DenoiserTransformer(nn.Module):
                                                        self.dropout)
         self.embed_timestep = TimestepEmbedder(self.h_dim,
                                                self.sequence_pos_encoder)
-        
+
         self.embed_text = nn.Linear(self.clip_dim, self.h_dim)
         # self.embed_text = nn.Sequential(nn.ReLU(), nn.Linear(self.clip_dim, self.h_dim))
 
@@ -157,7 +157,7 @@ class DenoiserTransformer(nn.Module):
             # print('masking cond')
             mask = torch.bernoulli(
                 torch.ones(bs, device=cond.device) * self.cond_mask_prob).view(
-                    bs, 1)  # 1-> use null_cond, 0-> use real cond
+                bs, 1)  # 1-> use null_cond, 0-> use real cond
             return cond * (1. - mask)
         else:
             return cond
@@ -256,7 +256,7 @@ class MLP(nn.Module):
         for h_dim in h_dims:
             layer = lora.Linear(in_dim_, h_dim,
                                 r=lora_rank) if use_lora else nn.Linear(
-                                    in_dim_, h_dim)
+                in_dim_, h_dim)
             self.layers.append(layer)
             in_dim_ = h_dim
 
@@ -284,7 +284,7 @@ class MLPBlock(nn.Module):
         ])  # two fc layers in each MLP
         self.out_fc = lora.Linear(h_dim, out_dim,
                                   r=lora_rank) if use_lora else nn.Linear(
-                                      h_dim, out_dim)
+            h_dim, out_dim)
 
     def forward(self, x):
         h = x

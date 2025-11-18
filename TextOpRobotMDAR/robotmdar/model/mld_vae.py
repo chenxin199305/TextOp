@@ -35,21 +35,21 @@ mem for each decoder layer
 class AutoMldVae(nn.Module):
 
     def __init__(
-        self,
-        nfeats: int,
-        latent_dim: list = [1, 256],
-        h_dim: int = 512,
-        ff_size: int = 1024,
-        num_layers: int = 9,
-        num_heads: int = 4,
-        dropout: float = 0.1,
-        arch: str = "all_encoder",
-        normalize_before: bool = False,
-        activation: str = "gelu",
-        position_embedding: str = "learned",
-        use_patcher=False,
-        patch_size=1,
-        patch_method="haar",    
+            self,
+            nfeats: int,
+            latent_dim: list = [1, 256],
+            h_dim: int = 512,
+            ff_size: int = 1024,
+            num_layers: int = 9,
+            num_heads: int = 4,
+            dropout: float = 0.1,
+            arch: str = "all_encoder",
+            normalize_before: bool = False,
+            activation: str = "gelu",
+            position_embedding: str = "learned",
+            use_patcher=False,
+            patch_size=1,
+            patch_method="haar",
     ) -> None:
 
         super().__init__()
@@ -119,10 +119,10 @@ class AutoMldVae(nn.Module):
         self.register_buffer('latent_std', torch.tensor(1))
 
     def encode(
-        self,
-        future_motion,
-        history_motion,
-        scale_latent: bool = False,
+            self,
+            future_motion,
+            history_motion,
+            scale_latent: bool = False,
     ) -> Tuple[Tensor, Distribution]:
         bs, nfuture, nfeats = future_motion.shape
         nhistory = history_motion.shape[1]
@@ -170,11 +170,11 @@ class AutoMldVae(nn.Module):
         return latent, dist
 
     def decode(
-        self,
-        z: Tensor,
-        history_motion,
-        nfuture,
-        scale_latent: bool = False,
+            self,
+            z: Tensor,
+            history_motion,
+            nfuture,
+            scale_latent: bool = False,
     ):
         # nfuture = 8
         bs = history_motion.shape[0]
@@ -214,7 +214,7 @@ class AutoMldVae(nn.Module):
         if self.use_patcher:
             output = self.inverse_wavelet_transform(output)
         return feats
-    
+
     def forward(self, z, history_motion):
 
         return self.decode(z, history_motion)

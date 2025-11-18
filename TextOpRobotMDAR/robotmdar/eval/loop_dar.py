@@ -37,6 +37,7 @@ from robotmdar.train.manager import DARManager
 from robotmdar.wrapper.vae_decode import DecoderWrapper
 from robotmdar.dtype.debug import pdb_decorator
 
+
 # import torch_tensorrt
 
 
@@ -161,7 +162,7 @@ def main(cfg: DictConfig):
         history_motion = val_data.normalize(
             get_zero_feature().unsqueeze(0).expand(1, history_len,
                                                    -1).to(cfg.device))
-    abs_pose = get_zero_abs_pose((1, ), device=cfg.device)
+    abs_pose = get_zero_abs_pose((1,), device=cfg.device)
     text_embedding = None
     # warmup(vae_trt, cfg_denoiser, diffusion, val_data, clip_model,
     #        history_motion, abs_pose, future_len, history_len, cfg)
@@ -185,7 +186,7 @@ def main(cfg: DictConfig):
 
     # Start interactive input thread
     input_thread = threading.Thread(target=interactive_input_thread,
-                                    args=(loop_state, ))
+                                    args=(loop_state,))
     input_thread.daemon = True
     input_thread.start()
 

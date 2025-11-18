@@ -11,9 +11,10 @@ _WAVELETS = {
 }
 _PERSISTENT = True
 
+
 class Patcher1D(torch.nn.Module):
     """A module to convert 1D signal tensors into patches using torch operations."""
-    
+
     def __init__(self, patch_size=1, patch_method="haar"):
         super().__init__()
         self.patch_size = patch_size
@@ -49,7 +50,7 @@ class Patcher1D(torch.nn.Module):
 
         # 1D padding
         x = F.pad(x, pad=(n - 2, n - 1), mode=mode).to(dtype)
-        
+
         # 1D小波变换
         xl = F.conv1d(x, hl, groups=g, stride=2)  # 低通滤波
         xh = F.conv1d(x, hh, groups=g, stride=2)  # 高通滤波
@@ -75,7 +76,7 @@ class Patcher1D(torch.nn.Module):
 
 class UnPatcher1D(torch.nn.Module):
     """A module to convert 1D patches back into signal tensors."""
-    
+
     def __init__(self, patch_size=1, patch_method="haar"):
         super().__init__()
         self.patch_size = patch_size
