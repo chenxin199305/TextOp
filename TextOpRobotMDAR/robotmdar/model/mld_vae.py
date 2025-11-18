@@ -198,11 +198,10 @@ class AutoMldVae(nn.Module):
 
         if scale_latent:  # only used during denoiser training
             z = z * self.latent_std
-        z = self.decoder_latent_proj(
-            z).to(device)  # [latent_size, bs, latent_dim] => [latent_size, bs, h_dim]
+        z = self.decoder_latent_proj(z).to(device)  # [latent_size, bs, latent_dim] => [latent_size, bs, h_dim]
+
         queries = torch.zeros(nfuture, bs, self.h_dim, device=z.device).to(device)
-        history_embedding = self.skel_embedding(history_motion).permute(
-            1, 0, 2).to(device)  # [nhistory, bs, h_dim]
+        history_embedding = self.skel_embedding(history_motion).permute(1, 0, 2).to(device)  # [nhistory, bs, h_dim]
 
         # Pass through the transformer decoder
         # with the latent vector for memory
