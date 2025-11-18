@@ -29,6 +29,19 @@ class ScheduleSampler(ABC):
     objective's mean is unchanged.
     However, subclasses may override sample() to change how the resampled
     terms are reweighted, allowing for actual changes in the objective.
+
+    顶层逻辑
+    在 Diffusion 模型中：
+    - 有 T 个时间步 (timesteps)，例如 T = 1000
+    - 训练时不可能对每个数据训练所有 1000 步
+    - 因此：每次训练我们从 timesteps 中抽样一个 t
+    这个类负责：
+    - 给每个 timestep 一个采样权重
+    用这个权重来：
+    - 决定采样哪一个 t
+    - 给 loss 做对应的 importance-sampling reweighting
+    也就是说：
+    - 它负责告诉模型：训练时更关注哪些 t
     """
 
     @abstractmethod
@@ -49,10 +62,12 @@ class ScheduleSampler(ABC):
                  - timesteps: a tensor of timestep indices.
                  - weights: a tensor of weights to scale the resulting losses.
         """
-        w = self.weights()
-        p = w / np.sum(w)
-        indices_np = np.random.choice(len(p), size=(batch_size,), p=p)
-        indices = th.from_numpy(indices_np).long().to(device)
+        w = self.weights()  # 获取权重数组
+        p = w / np.sum(w)  # 归一化成概率分布
+        indices_np = np.random.choice(len(p), size=(batch_size,), p=p)  # 按概率采样 indices
+        indices = th.from_numpy(indices_np).long().to(device)  # 转成 torch tensor
+
+        # 计算 importance weights
         weights_np = 1 / (len(p) * p[indices_np])
         weights = th.from_numpy(weights_np).float().to(device)
         return indices, weights

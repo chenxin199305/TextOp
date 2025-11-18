@@ -23,6 +23,16 @@ Q: primitive 可能是什么长度？
     future_len = 20 (每段未来动作 = 20帧)
     num_primitive = 4
     那么总动作长度 = 10 + (4×20) = 90 帧
+
+Q: B, H, T, D 分别代码什么含义
+A: B, H, T, D 是典型的 动作序列 / 时序模型的张量维度命名
+    | 符号    | 代表含义                             | 示例值               | 解释                 |
+    | ----- | -------------------------------- | ----------------- | ------------------ |
+    | **B** | Batch size                       | 16                | 一次训练喂多少个样本         |
+    | **H** | History length                   | 10                | 历史帧数（已知动作序列长度）     |
+    | **T** | Future length (primitive length) | 20                | 一个 primitive 的预测长度 |
+    | **D** | Feature dimension                | 263 / 72 / 3N etc | 每一帧的人体姿态/动作特征维度    |
+
 """
 
 import torch
@@ -66,6 +76,11 @@ def main(cfg: DictConfig):
     num_primitive: int = cfg.data.num_primitive
     future_len: int = cfg.data.future_len
     history_len: int = cfg.data.history_len
+
+    print(
+        f"Training DAR with {num_primitive} primitives, "
+        f"each with future length {future_len} and history length {history_len}."
+    )
 
     train_dataiter = iter(train_data)
     val_dataiter = iter(val_data)
@@ -263,6 +278,7 @@ def main(cfg: DictConfig):
                     t, weights = schedule_sampler.sample(motion.shape[0],
                                                          device=cfg.device)
 
+                    # 与训练相同的分支逻辑：如果使用 VAE，则编码并构造 x_start；否则拼接原始 motion。
                     if USE_VAE:
                         latent_gt, _ = vae.encode(
                             future_motion=future_motion_gt,
@@ -274,6 +290,8 @@ def main(cfg: DictConfig):
                         x_start = torch.cat((history_motion, future_motion_gt),
                                             dim=1)
 
+                    # 对 x_start 做 q_sample 得到 x_t，构建条件 y，
+                    # 并通过 denoiser 得到预测 x_start_pred（所有操作都在 no_grad 下）。
                     x_t = diffusion.q_sample(x_start=x_start,
                                              t=t,
                                              noise=torch.randn_like(x_start))

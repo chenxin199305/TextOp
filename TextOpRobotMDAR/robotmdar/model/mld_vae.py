@@ -33,6 +33,9 @@ mem for each decoder layer
 
 
 class AutoMldVae(nn.Module):
+    """
+    基于 Transformer 的 VAE（变分自编码器）
+    """
 
     def __init__(
             self,
@@ -67,6 +70,11 @@ class AutoMldVae(nn.Module):
         self.patch_size = patch_size
         self.patch_method = patch_method
 
+        """
+        如果 use_patcher=True：
+        - encode 前 → motion 切 patch
+        - decode 后 → patch 逆变换回来
+        """
         if self.use_patcher:
             self.wavelet_transform = Patcher1D(patch_size, patch_method)
             self.inverse_wavelet_transform = UnPatcher1D(patch_size, patch_method)

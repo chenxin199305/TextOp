@@ -80,15 +80,34 @@ class BaseManager(ABC):
 
     def pre_step(self, is_eval: bool = False) -> None:
         """每步训练前调用"""
+
+        # self._stage_steps 是一个递增的 step 边界列表
+        # searchsorted 会查找当前 step 属于第几阶段
+        """
+        searchsorted 举例：
+        _stage_steps = [10000, 20000, 30000]
+        step = 0       → stage_idx = 0
+        step = 5000    → stage_idx = 0
+        step = 15000   → stage_idx = 1
+        step = 29999   → stage_idx = 2
+        step = 35000   → stage_idx = 3 （超出）
+        """
         self.stage_idx = torch.searchsorted(self._stage_steps, self.step, out_int32=True).item()  # type:ignore
         self.extra['stage'] = self.stage_idx
 
         if not self._tqdm:
             self._tqdm = tqdm(total=self.max_steps, initial=self.step, ncols=120, desc="Training")
+
+        # 动态学习率调节（annealing）
         if self.anneal_lr:
+            # 线性衰减（Linear LR decay）
             frac = 1.0 - self.step / self.max_steps
             lrnow = frac * self.learning_rate
+
+            # 存储 lr 到日志中
             self.extra['lr'] = lrnow
+
+            # 更新 optimizer 的学习率
             self.optimizer.param_groups[0]["lr"] = lrnow
         else:
             lrnow = self.learning_rate
@@ -285,14 +304,14 @@ class BaseManager(ABC):
         if history_len is None:
             history_len = gt_history.shape[1]
 
-        # 1. 检查是否使用rollout history
+        # 1. 检查是否使用 rollout history
         if prev_motion is not None and self.should_rollout():
             history_motion = prev_motion[:, -history_len:, :]
         else:
-            # 使用ground truth history
+            # 使用 ground truth history
             history_motion = gt_history
 
-        # 2. 检查是否使用static pose
+        # 2. 检查是否使用 static pose
         if self.should_static_pose():
             zero_feature = get_zero_feature().expand_as(history_motion).to(history_motion.device)
             # 添加扰动
