@@ -362,9 +362,17 @@ class TransformerDecoderLayer(nn.Module):
     - Dropout
     """
 
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
-                 activation="relu", normalize_before=False):
+    def __init__(
+            self,
+            d_model,
+            nhead,
+            dim_feedforward=2048,
+            dropout=0.1,
+            activation="relu",
+            normalize_before=False,
+    ):
         super().__init__()
+
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
