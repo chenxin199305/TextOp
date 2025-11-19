@@ -24,7 +24,9 @@ We tested the project on:
 
 ## Preparing Data and Model
 
-Download the descriptions and pretrained models from HuggingFace: [HuggingFace](https://huggingface.co/datasets/Yochish/TextOp-Data) and merge the downloaded folder with this repository.
+Download the descriptions and pretrained models from HuggingFace: 
+[HuggingFace](https://huggingface.co/datasets/Yochish/TextOp-Data) 
+and merge the downloaded folder with this repository.
 
 Please respect the licenses of:
 unitree_mujoco, BeyondMimic, AMASS, BABEL-TEACH, LAFAN1.
