@@ -176,15 +176,14 @@ def main(cfg: DictConfig):
             # Calculate loss
             # 把 ground-truth 未来、预测未来、潜在 gt/pred、权重等传给 manager.calc_loss，
             # 由 manager 统一计算各种损失项并返回字典 loss_dict（例如重构损失、KL、对抗或 perceptual loss）。
-            loss_dict, extras = manager.calc_loss(
-                future_motion_gt,
-                future_motion_pred,
-                latent_gt,
-                None,
-                latent_pred,
-                weights,
-                history_motion=history_motion  # dist=None for DAR
-            )
+            loss_dict, extras = manager.calc_loss(future_motion_gt,
+                                                  future_motion_pred,
+                                                  latent_gt,
+                                                  None,
+                                                  latent_pred,
+                                                  weights,
+                                                  history_motion=history_motion,  # dist=None for DAR
+                                                  )
             loss = loss_dict['total']  # 取得总损失标量（用于反向传播）。
 
             # optimizer.zero_grad()：清零梯度。
