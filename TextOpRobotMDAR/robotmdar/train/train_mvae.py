@@ -132,8 +132,7 @@ def main(cfg: DictConfig):
             for param in vae.parameters():
                 if param.grad is not None:
                     # 检查 NaN 和 Inf
-                    if torch.isnan(param.grad).any() or torch.isinf(
-                            param.grad).any():
+                    if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
                         has_nan_grad = True
 
             # 若没有 NaN/Inf 梯度：
