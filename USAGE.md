@@ -269,7 +269,7 @@ conda activate textop
 pip install colcon-common-extensions empy==3.3.4 catkin_pkg lark-parser netifaces transforms3d pyyaml rosdep 
 ```
 
-- Install `TextOpDeploy/src/unitree_ros2` following [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2).
+- Install `TextOpDeploy/src/unitree_ros2` following [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2). Remember to modify `TextOpDeploy/src/unitree_ros2/setup.sh` to set the net interface correctly.
 
 - Install `unitree_sdk2`, `mujoco` and `TextOpDeploy/src/unitree_mujoco`, following [unitree_mujoco's README](TextOpDeploy/src/unitree_mujoco/readme.md). Only **C++ Simulator** is needed. This version includes communication hooks for `textop_ctrl`.
 
