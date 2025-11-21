@@ -10,6 +10,7 @@ from isaaclab.assets import Articulation
 from isaaclab.utils.math import quat_error_magnitude
 from isaaclab.envs.mdp.rewards import contact_forces
 from textop_tracker.tasks.tracking.mdp import MotionCommand
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
@@ -30,7 +31,7 @@ def reward_cond_on_pfail(rew_fn: Callable) -> Callable:
 
 
 def contact_forces_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, threshold: float, sensor_cfg: SceneEntityCfg
+        env: ManagerBasedRLEnv, pfail_threshold: float, threshold: float, sensor_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     return reward_cond_on_pfail(contact_forces)(env, pfail_threshold, threshold, sensor_cfg)
 
@@ -41,57 +42,57 @@ def contact_forces_cond_on_pfail(
 def motion_global_anchor_position_error_exp(env: ManagerBasedRLEnv, command_name: str, std: float) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     error = torch.sum(torch.square(command.anchor_pos_w - command.robot_anchor_pos_w), dim=-1)
-    return torch.exp(-error / std**2)
+    return torch.exp(-error / std ** 2)
 
 
 def motion_global_anchor_orientation_error_exp(env: ManagerBasedRLEnv, command_name: str, std: float) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
-    error = quat_error_magnitude(command.anchor_quat_w, command.robot_anchor_quat_w)**2
-    return torch.exp(-error / std**2)
+    error = quat_error_magnitude(command.anchor_quat_w, command.robot_anchor_quat_w) ** 2
+    return torch.exp(-error / std ** 2)
 
 
 def motion_relative_body_position_error_exp(
-    env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     body_indexes = _get_body_indexes(command, body_names)
     error = torch.sum(
         torch.square(command.body_pos_relative_w[:, body_indexes] - command.robot_body_pos_w[:, body_indexes]), dim=-1
     )
-    return torch.exp(-error.mean(-1) / std**2)
+    return torch.exp(-error.mean(-1) / std ** 2)
 
 
 def motion_relative_body_orientation_error_exp(
-    env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     body_indexes = _get_body_indexes(command, body_names)
     error = quat_error_magnitude(
         command.body_quat_relative_w[:, body_indexes], command.robot_body_quat_w[:, body_indexes]
-    )**2
-    return torch.exp(-error.mean(-1) / std**2)
+    ) ** 2
+    return torch.exp(-error.mean(-1) / std ** 2)
 
 
 def motion_global_body_linear_velocity_error_exp(
-    env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     body_indexes = _get_body_indexes(command, body_names)
     error = torch.sum(
         torch.square(command.body_lin_vel_w[:, body_indexes] - command.robot_body_lin_vel_w[:, body_indexes]), dim=-1
     )
-    return torch.exp(-error.mean(-1) / std**2)
+    return torch.exp(-error.mean(-1) / std ** 2)
 
 
 def motion_global_body_angular_velocity_error_exp(
-    env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, std: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
     body_indexes = _get_body_indexes(command, body_names)
     error = torch.sum(
         torch.square(command.body_ang_vel_w[:, body_indexes] - command.robot_body_ang_vel_w[:, body_indexes]), dim=-1
     )
-    return torch.exp(-error.mean(-1) / std**2)
+    return torch.exp(-error.mean(-1) / std ** 2)
 
 
 #####################
@@ -106,7 +107,7 @@ def feet_contact_time(env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg, thresh
 
 
 def feet_slide(
-    env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     contacts = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :].norm(dim=-1).max(dim=1)[0] > 1.0
@@ -120,14 +121,14 @@ def feet_slide(
 
 
 def feet_slide_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg
+        env: ManagerBasedRLEnv, pfail_threshold: float, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     return reward_cond_on_pfail(feet_slide)(env, pfail_threshold, sensor_cfg, asset_cfg)
 
 
 def soft_landing(
-    env: ManagerBasedRLEnv,
-    sensor_cfg: SceneEntityCfg,
+        env: ManagerBasedRLEnv,
+        sensor_cfg: SceneEntityCfg,
 ) -> torch.Tensor:
     """Penalize high impact forces at landing to encourage soft footfalls."""
 
@@ -147,13 +148,13 @@ def soft_landing(
 
 # soft_landing_cond_on_pfail = reward_cond_on_pfail(soft_landing)
 def soft_landing_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, sensor_cfg: SceneEntityCfg
+        env: ManagerBasedRLEnv, pfail_threshold: float, sensor_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     return reward_cond_on_pfail(soft_landing)(env, pfail_threshold, sensor_cfg)
 
 
 def joint_vel_out_of_manual_limit_reward(
-    env: ManagerBasedRLEnv, max_velocity: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, max_velocity: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Terminate when the asset's joint velocities are outside the provided limits."""
     # extract the used quantities (to enable type-hinting)
@@ -166,16 +167,16 @@ def joint_vel_out_of_manual_limit_reward(
 
 
 def joint_vel_out_of_manual_limit_cond_on_pfail_reward(
-    env: ManagerBasedRLEnv,
-    pfail_threshold: float,
-    max_velocity: float,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv,
+        pfail_threshold: float,
+        max_velocity: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return reward_cond_on_pfail(joint_vel_out_of_manual_limit_reward)(env, pfail_threshold, max_velocity, asset_cfg)
 
 
 def joint_effort_out_of_limit_fixed_reward(
-    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Terminate when effort applied on the asset's joints are outside of the soft joint limits.
 
@@ -197,6 +198,6 @@ def joint_effort_out_of_limit_fixed_reward(
 
 
 def joint_effort_out_of_limit_fixed_cond_on_pfail_reward(
-    env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return reward_cond_on_pfail(joint_effort_out_of_limit_fixed_reward)(env, pfail_threshold, asset_cfg)

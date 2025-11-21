@@ -149,21 +149,21 @@ class MultiMotionLoader:
 
         return {
             "joint_pos":
-            self.joint_pos_list[motion_idx][time_steps_tensor],
+                self.joint_pos_list[motion_idx][time_steps_tensor],
             "joint_vel":
-            self.joint_vel_list[motion_idx][time_steps_tensor],
+                self.joint_vel_list[motion_idx][time_steps_tensor],
             "body_pos_w":
-            self._body_pos_w_list[motion_idx][time_steps_tensor]
-            [:, self._body_indexes],
+                self._body_pos_w_list[motion_idx][time_steps_tensor]
+                [:, self._body_indexes],
             "body_quat_w":
-            self._body_quat_w_list[motion_idx][time_steps_tensor]
-            [:, self._body_indexes],
+                self._body_quat_w_list[motion_idx][time_steps_tensor]
+                [:, self._body_indexes],
             "body_lin_vel_w":
-            self._body_lin_vel_w_list[motion_idx][time_steps_tensor]
-            [:, self._body_indexes],
+                self._body_lin_vel_w_list[motion_idx][time_steps_tensor]
+                [:, self._body_indexes],
             "body_ang_vel_w":
-            self._body_ang_vel_w_list[motion_idx][time_steps_tensor]
-            [:, self._body_indexes],
+                self._body_ang_vel_w_list[motion_idx][time_steps_tensor]
+                [:, self._body_indexes],
         }
 
 
@@ -414,8 +414,8 @@ class MotionCommand(CommandTerm):
         buffer_indices = torch.clamp(self.time_steps - self.buffer_start_time,
                                      0, self.buffer_length - 1)
         return (self.body_pos_w_buffer[
-            torch.arange(self.num_envs, device=self.device), buffer_indices,
-            self.motion_anchor_body_index] + self._env.scene.env_origins)
+                    torch.arange(self.num_envs, device=self.device), buffer_indices,
+                    self.motion_anchor_body_index] + self._env.scene.env_origins)
 
     @property
     def anchor_quat_w(self) -> torch.Tensor:
@@ -625,14 +625,14 @@ class MotionCommand(CommandTerm):
                                          replacement=True)
 
         self.time_steps[env_ids] = (
-            (sampled_bins +
-             sample_uniform(0.0, 1.0, (len(env_ids), ), device=self.device)) /
-            self.bin_count *
-            (self.motion.file_lengths.max().item() - 1)).long()
+                (sampled_bins +
+                 sample_uniform(0.0, 1.0, (len(env_ids),), device=self.device)) /
+                self.bin_count *
+                (self.motion.file_lengths.max().item() - 1)).long()
         # 再从bin转回time_steps
         self.time_steps[env_ids] = (
-            sampled_bins / self.bin_count *
-            (self.motion.file_lengths.max().item() - 1)).long()
+                sampled_bins / self.bin_count *
+                (self.motion.file_lengths.max().item() - 1)).long()
 
         # Metrics
         H = -(sampling_probabilities *
@@ -667,7 +667,7 @@ class MotionCommand(CommandTerm):
 
         if self.cfg.ads_type == "v1":
             p_fail = self.failed_motion_count / (
-                self.failed_motion_count.sum() + 1e-8)
+                    self.failed_motion_count.sum() + 1e-8)
             if self.cfg.adaptive_length_weighted:
                 p_fail = p_fail * self.motion.file_lengths
                 p_fail = p_fail / (p_fail.sum() + 1e-8)
@@ -675,26 +675,26 @@ class MotionCommand(CommandTerm):
             p_fail_sample = p_fail_sample / (p_fail_sample.sum() + 1e-8)
 
             sampling_probabilities = (
-                p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
-                self.cfg.adaptive_uniform_ratio / float(self.num_motion))
+                    p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
+                    self.cfg.adaptive_uniform_ratio / float(self.num_motion))
         elif self.cfg.ads_type == "v2":
             p_fail = self.failed_motion_count / (
-                self.failed_motion_count + self.success_motion_count + 1e-8)
+                    self.failed_motion_count + self.success_motion_count + 1e-8)
             p_fail_sample = torch.pow(p_fail, self.cfg.adaptive_beta)
             p_fail_sample = p_fail_sample / (p_fail_sample.sum() + 1e-8)
 
             sampling_probabilities = (
-                p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
-                self.cfg.adaptive_uniform_ratio / float(self.num_motion))
+                    p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
+                    self.cfg.adaptive_uniform_ratio / float(self.num_motion))
         elif self.cfg.ads_type == "v3":
             p_fail = self.failed_motion_count / (
-                self.failed_motion_count + self.success_motion_count + 1e-8)
+                    self.failed_motion_count + self.success_motion_count + 1e-8)
             p_fail_sample = 1 - torch.pow(1 - p_fail, self.cfg.adaptive_beta)
             p_fail_sample = p_fail_sample / (p_fail_sample.sum() + 1e-8)
 
             sampling_probabilities = (
-                p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
-                self.cfg.adaptive_uniform_ratio / float(self.num_motion))
+                    p_fail_sample * (1 - self.cfg.adaptive_uniform_ratio) +
+                    self.cfg.adaptive_uniform_ratio / float(self.num_motion))
         else:
             raise ValueError(
                 f"Unsupported adaptive sampling type: {self.cfg.ads_type}")
@@ -724,7 +724,7 @@ class MotionCommand(CommandTerm):
 
     def _uniform_sampling(self, env_ids: torch.Tensor) -> torch.Tensor:
         return (sample_uniform(0.0, 1.0,
-                               (len(env_ids), ), device=self.device) *
+                               (len(env_ids),), device=self.device) *
                 self.motion.num_files).long()
         ...
 
@@ -747,9 +747,9 @@ class MotionCommand(CommandTerm):
                                                    device=self.device)
         else:
             self.time_steps[env_ids] = (
-                sample_uniform(0.0, 1.0,
-                               (len(env_ids), ), device=self.device) *
-                self.motion_length[env_ids]).long()
+                    sample_uniform(0.0, 1.0,
+                                   (len(env_ids),), device=self.device) *
+                    self.motion_length[env_ids]).long()
 
         self.buffer_start_time[env_ids] = self.time_steps[env_ids].clone()
 
@@ -803,7 +803,7 @@ class MotionCommand(CommandTerm):
                 root_pos[env_ids], root_ori[env_ids], root_lin_vel[env_ids],
                 root_ang_vel[env_ids]
             ],
-                      dim=-1),
+                dim=-1),
             env_ids=env_ids,  # type: ignore
         )
 
@@ -821,11 +821,11 @@ class MotionCommand(CommandTerm):
         robot_anchor_pos_w_repeat = self.robot_anchor_pos_w[:, None, :].repeat(
             1, len(self.cfg.body_names), 1)
         robot_anchor_quat_w_repeat = self.robot_anchor_quat_w[:,
-                                                              None, :].repeat(
-                                                                  1,
-                                                                  len(self.cfg.
-                                                                      body_names
-                                                                      ), 1)
+        None, :].repeat(
+            1,
+            len(self.cfg.
+                body_names
+                ), 1)
 
         delta_pos_w = robot_anchor_pos_w_repeat
         delta_pos_w[..., 2] = anchor_pos_w_repeat[..., 2]
@@ -840,20 +840,20 @@ class MotionCommand(CommandTerm):
         alpha = self.cfg.adaptive_alpha
         if not self.cfg.ads_stable_count:
             self.failed_motion_count = self.cfg.adaptive_alpha * self.current_failed_motion_count + (
-                1 - self.cfg.adaptive_alpha) * self.failed_motion_count
+                    1 - self.cfg.adaptive_alpha) * self.failed_motion_count
             self.success_motion_count = self.cfg.adaptive_alpha * self.current_success_motion_count + (
-                1 - self.cfg.adaptive_alpha) * self.success_motion_count
+                    1 - self.cfg.adaptive_alpha) * self.success_motion_count
         else:
             tried = (self.current_failed_motion_count +
                      self.current_success_motion_count > 0.5)
             # Only decay the count when Tried.
             self.failed_motion_count = torch.where(
                 tried, alpha * self.current_failed_motion_count +
-                (1 - alpha) * self.failed_motion_count,
+                       (1 - alpha) * self.failed_motion_count,
                 self.failed_motion_count)
             self.success_motion_count = torch.where(
                 tried, alpha * self.current_success_motion_count +
-                (1 - alpha) * self.success_motion_count,
+                       (1 - alpha) * self.success_motion_count,
                 self.success_motion_count)
 
         total_current_failed_count = self.current_failed_motion_count.sum(
@@ -864,13 +864,13 @@ class MotionCommand(CommandTerm):
                  > 0.5)
         if tried:
             self.failed_total_count = alpha * total_current_failed_count + (
-                1 - alpha) * self.failed_total_count
+                    1 - alpha) * self.failed_total_count
             self.success_total_count = alpha * total_current_success_count + (
-                1 - alpha) * self.success_total_count
+                    1 - alpha) * self.success_total_count
         self.metrics["failed_total_count"][:] = self.failed_total_count
         self.metrics["success_total_count"][:] = self.success_total_count
         self.metrics["pfail_total"][:] = self.failed_total_count / (
-            self.failed_total_count + self.success_total_count + 1e-8)
+                self.failed_total_count + self.success_total_count + 1e-8)
 
         # print(
         #     "DEBUG: failed_total_count: ", self.failed_total_count, "success_total_count: ", self.success_total_count,
@@ -894,20 +894,20 @@ class MotionCommand(CommandTerm):
                     prim_path="/Visuals/Command/current/anchor",
                     markers={
                         "hit":
-                        sim_utils.SphereCfg(
-                            radius=0.05,
-                            visual_material=red_color,
-                        ),
+                            sim_utils.SphereCfg(
+                                radius=0.05,
+                                visual_material=red_color,
+                            ),
                     },
                 )
                 goal_anchor_visualizer_cfg: VisualizationMarkersCfg = VisualizationMarkersCfg(
                     prim_path="/Visuals/Command/goal/anchor",
                     markers={
                         "hit":
-                        sim_utils.SphereCfg(
-                            radius=0.05,
-                            visual_material=green_color,
-                        ),
+                            sim_utils.SphereCfg(
+                                radius=0.05,
+                                visual_material=green_color,
+                            ),
                     },
                 )
 
@@ -923,20 +923,20 @@ class MotionCommand(CommandTerm):
                         prim_path="/Visuals/Command/current/" + name,
                         markers={
                             "target":
-                            sim_utils.SphereCfg(
-                                radius=0.02,
-                                visual_material=red_color,
-                            ),
+                                sim_utils.SphereCfg(
+                                    radius=0.02,
+                                    visual_material=red_color,
+                                ),
                         },
                     )
                     goal_body_visualizer_cfg: VisualizationMarkersCfg = VisualizationMarkersCfg(
                         prim_path="/Visuals/Command/goal/" + name,
                         markers={
                             "target":
-                            sim_utils.SphereCfg(
-                                radius=0.02,
-                                visual_material=green_color,
-                            ),
+                                sim_utils.SphereCfg(
+                                    radius=0.02,
+                                    visual_material=green_color,
+                                ),
                         },
                     )
                     self.current_body_visualizers.append(
@@ -973,7 +973,7 @@ class MotionCommand(CommandTerm):
                 self.robot_body_pos_w[:, i], self.robot_body_quat_w[:, i])
             self.goal_body_visualizers[i].visualize(
                 self.body_pos_relative_w[:, i], self.body_quat_relative_w[:,
-                                                                          i])
+                i])
 
 
 @configclass

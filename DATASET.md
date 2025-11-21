@@ -30,6 +30,9 @@ data from their websites.
 
 ### 2. Retargeting
 
+> Jason 2025-11-20:
+> When try to use GMR to do retarget, should run under GMR conda env, because it use different python version compared to this project.
+
 Use [GMR](https://github.com/YanjieZe/GMR) to retarget whole AMASS data to G1:
 
 - Install `GMR` and additional `joblib` .

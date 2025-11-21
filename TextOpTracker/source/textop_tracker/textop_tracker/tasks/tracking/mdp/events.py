@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 
 
 def randomize_joint_default_pos(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    asset_cfg: SceneEntityCfg,
-    pos_distribution_params: tuple[float, float] | None = None,
-    operation: Literal["add", "scale", "abs"] = "abs",
-    distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        pos_distribution_params: tuple[float, float] | None = None,
+        operation: Literal["add", "scale", "abs"] = "abs",
+        distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
 ):
     """
     Randomize the joint default positions which may be different from URDF due to calibration errors.
@@ -53,10 +53,10 @@ def randomize_joint_default_pos(
 
 
 def randomize_rigid_body_com(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    com_range: dict[str, tuple[float, float]],
-    asset_cfg: SceneEntityCfg,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        com_range: dict[str, tuple[float, float]],
+        asset_cfg: SceneEntityCfg,
 ):
     """Randomize the center of mass (CoM) of rigid bodies by adding a random value sampled from the given ranges.
 

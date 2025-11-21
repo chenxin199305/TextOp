@@ -115,6 +115,7 @@ class ActionsCfg:
 @configclass
 class ObservationsCfg:
     """Observation specifications for the MDP."""
+
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
@@ -167,6 +168,7 @@ class ObservationsCfg:
 @configclass
 class ProjGravObservationsCfg:
     """Observation specifications for the MDP."""
+
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
@@ -225,6 +227,7 @@ class ProjGravObservationsCfg:
 @configclass
 class PropPropObservationsCfg:
     """Observation specifications for the MDP."""
+
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
@@ -259,6 +262,7 @@ class PropPropObservationsCfg:
 @configclass
 class PrivPrivObservationsCfg:
     """Observation specifications for the MDP."""
+
     @configclass
     class PrivilegedCfg(ObsGroup):
         command = ObsTerm(func=mdp.generated_commands, params={"command_name": "motion"})
@@ -280,6 +284,7 @@ class PrivPrivObservationsCfg:
 @configclass
 class NoisePrivObservationsCfg:
     """Observation specifications for the MDP."""
+
     @configclass
     class PrivilegedCfg(ObsGroup):
         command = ObsTerm(func=mdp.generated_commands, params={"command_name": "motion"})
@@ -574,7 +579,7 @@ class TrackingEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
         self.sim.physics_material = self.scene.terrain.physics_material
-        self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
+        self.sim.physx.gpu_max_rigid_patch_count = 10 * 2 ** 15
         # viewer settings
         self.viewer.eye = (1.0, -2.0, 1.0)
         self.viewer.lookat = (0.0, 0.0, 0.8)

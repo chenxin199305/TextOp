@@ -29,22 +29,22 @@ def termination_cond_on_pfail(term_fn: Callable) -> Callable:
 
 
 def joint_pos_out_of_limit_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return termination_cond_on_pfail(joint_pos_out_of_limit)(env, pfail_threshold, asset_cfg)
 
 
 def joint_vel_out_of_limit_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return termination_cond_on_pfail(joint_vel_out_of_limit)(env, pfail_threshold, asset_cfg)
 
 
 def joint_vel_out_of_manual_limit_cond_on_pfail(
-    env: ManagerBasedRLEnv,
-    pfail_threshold: float,
-    max_velocity: float,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv,
+        pfail_threshold: float,
+        max_velocity: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return termination_cond_on_pfail(joint_vel_out_of_manual_limit)(env, pfail_threshold, max_velocity, asset_cfg)
 
@@ -53,7 +53,7 @@ def joint_vel_out_of_manual_limit_cond_on_pfail(
 
 
 def joint_effort_out_of_limit_fixed(
-    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Terminate when effort applied on the asset's joints are outside of the soft joint limits.
 
@@ -73,7 +73,7 @@ def joint_effort_out_of_limit_fixed(
 
 
 def joint_effort_out_of_limit_fixed_cond_on_pfail(
-    env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+        env: ManagerBasedRLEnv, pfail_threshold: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     return termination_cond_on_pfail(joint_effort_out_of_limit_fixed)(env, pfail_threshold, asset_cfg)
 
@@ -89,7 +89,7 @@ def bad_anchor_pos_z_only(env: ManagerBasedRLEnv, command_name: str, threshold: 
 
 
 def bad_anchor_ori(
-    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, command_name: str, threshold: float
+        env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, command_name: str, threshold: float
 ) -> torch.Tensor:
     asset: RigidObject | Articulation = env.scene[asset_cfg.name]
 
@@ -103,7 +103,7 @@ def bad_anchor_ori(
 
 
 def bad_motion_body_pos(
-    env: ManagerBasedRLEnv, command_name: str, threshold: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, threshold: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
 
@@ -113,7 +113,7 @@ def bad_motion_body_pos(
 
 
 def bad_motion_body_pos_z_only(
-    env: ManagerBasedRLEnv, command_name: str, threshold: float, body_names: list[str] | None = None
+        env: ManagerBasedRLEnv, command_name: str, threshold: float, body_names: list[str] | None = None
 ) -> torch.Tensor:
     command: MotionCommand = env.command_manager.get_term(command_name)
 
