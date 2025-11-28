@@ -39,6 +39,7 @@ Use [GMR](https://github.com/YanjieZe/GMR) to retarget whole AMASS data to G1:
 - Run `dataset/smplx_to_robot_dataset.py`, a slightly modified script.
 
 ```bash
+# Generate retaregeted data
 python dataset/smplx_to_robot_dataset.py 
 --src_folder <path_to_dir_of_smplx_data> 
 --tgt_folder <path_to_dir_to_save_robot_data> 
@@ -51,13 +52,14 @@ Post process retargeted data:
 - computes the feet contact mask, and saves the data in a [PBHC](https://github.com/TeleHuman/PBHC)-pkl format.
 
 ```bash
+# Update retargeted data to 50Hz
 python dataset/process_retarget_data.py 
 --input_dir <Path To Retargeted Data Dir> 
 --output_dir <Path To Output Dir> 
 --robot_config "TextOpRobotMDAR/robotmdar/config/skeleton/g1.yaml"
 ```
 
-#### 4. Prepare Data for Tracker
+#### 3. Prepare Data for Tracker
 
 > We manually remove some unsuitable data in AMASS for RL training.
 
@@ -74,17 +76,23 @@ Transform the data format to meet Tracker's requirement:
 
 ```bash
 # Activate the Tracker's environment
-python scripts/pklpack_to_npz.py --input_file /path/to/aaa.pkl \
-    --output_dir ./artifacts/unpacked_motions --input_fps 50 --output_fps 50
-
+python scripts/pklpack_to_npz.py 
+--input_file /path/to/aaa.pkl
+--output_dir ./artifacts/unpacked_motions 
+--input_fps 50 
+--output_fps 50
 ```
 
 We also select and add some high-quality motions from `LAFAN1`.
 These parts of data can be transformed from `.csv` format to `.npz` format by:
 
 ```bash
-python scripts/csv_to_npz.py --input_file LAFAN/dance1_subject2.csv --input_fps 30 --frame_range 122 722 \
-    --output_file ./artifacts/dance1_subject2/motion.npz --output_fps 50
+python scripts/csv_to_npz.py 
+--input_file LAFAN/dance1_subject2.csv 
+--input_fps 30 
+--frame_range 122 722
+--output_file ./artifacts/dance1_subject2/motion.npz 
+--output_fps 50
 ```
 
 Organize the data files as following for Tracker loading:
@@ -101,7 +109,7 @@ TextOpTracker/artifacts/
 
 ```
 
-#### 5. Prepare Data for RobotMDAR
+#### 4. Prepare Data for RobotMDAR
 
 Pack motion and text label dataset to meet RobotMDAR's requirement:
 
@@ -111,11 +119,17 @@ Pack motion and text label dataset to meet RobotMDAR's requirement:
 - and the entire dataset has a total duration of **105,395** seconds.
 
 ```bash
-python dataset/pack_dataset.py --amass_robot <Path To Retargeted Data Dir> --babel <Path to BABEL Dir>
+# Generate packaged data
+python dataset/pack_dataset.py 
+--amass_robot <Path To Retargeted Data Dir> 
+--babel <Path to BABEL Dir>
 ```
 
 Calculate data sampling weights for RobotMDAR training:
 
 ```bash
-python dataset/cal_action_statistics.py --data_folder <Path To Packaged Data Dir> --trg_filename <Path To Save Json File>
+# Generate json data
+python dataset/cal_action_statistics.py 
+--data_folder <Path To Packaged Data Dir> 
+--trg_filename <Path To Save Json File>
 ```
