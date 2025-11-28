@@ -43,18 +43,18 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
             process = psutil.Process(os.getpid())
             memory_usage = process.memory_info().rss / (1024 ** 3)  # Convert to GB
             print(f"[MEMORY] {message}: {memory_usage:.2f} GB")
-    
+
     # Start memory tracking if verbose
     if verbose:
         tracemalloc.start()
-        
+
     # Initial checks (with optional logging)
     log_memory("Initial memory usage")
-    
+
     num_pause = 0
     while check_memory():
         print(f"[PAUSE] Paused processing {smplx_file_path} to prevent memory overflow. num_pause: {num_pause}")
-        time.sleep(60*2)
+        time.sleep(60 * 2)
         num_pause += 1
         if num_pause > 10:
             print(f"[ERROR] Memory usage is still high after 10 pauses. Exiting.")
@@ -67,15 +67,14 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
     except Exception as e:
         print(f"Error loading {smplx_file_path}: {e}")
         return
-    
-  
+
     tgt_fps = 30
     try:
         smplx_frame_data_list, aligned_fps = get_smplx_data_offline_fast(smplx_data, body_model, smplx_output, tgt_fps=tgt_fps)
     except Exception as e:
         print(f"Error processing {smplx_file_path}: {e}")
         return
-    
+
     # retarget
     retargeter = GMR(
         src_human="smplx",
@@ -90,7 +89,7 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
     qpos_list = np.array(qpos_list)
 
     log_memory("After retargeting")
-    
+
     device = "cuda:0"
     kinematics_model = KinematicsModel(retargeter.xml_file, device=device)
 
@@ -115,23 +114,22 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
     log_memory("After forward kinematics")
 
     body_names = kinematics_model.body_names
-    
+
     HEIGHT_ADJUST = True
     if HEIGHT_ADJUST:
         # height adjust to ensure the lowerset part is on the ground
-        body_pos, _ = kinematics_model.forward_kinematics(torch.from_numpy(root_pos).to(device=device, dtype=torch.float), 
-                                                        torch.from_numpy(root_rot).to(device=device, dtype=torch.float), 
-                                                        torch.from_numpy(dof_pos).to(device=device, dtype=torch.float)) # TxNx3
+        body_pos, _ = kinematics_model.forward_kinematics(torch.from_numpy(root_pos).to(device=device, dtype=torch.float),
+                                                          torch.from_numpy(root_rot).to(device=device, dtype=torch.float),
+                                                          torch.from_numpy(dof_pos).to(device=device, dtype=torch.float))  # TxNx3
         ground_offset = 0.0
         lowerst_height = torch.min(body_pos[..., 2]).item()
-        root_pos[:, 2] = root_pos[:, 2] - lowerst_height + ground_offset # make sure motion on the ground
-        
+        root_pos[:, 2] = root_pos[:, 2] - lowerst_height + ground_offset  # make sure motion on the ground
+
     ROOT_ORIGIN_OFFSET = True
     if ROOT_ORIGIN_OFFSET:
         # offset using the first frame
         root_pos[:, :2] -= root_pos[0, :2]
-        
-        
+
     motion_data = {
         "fps": aligned_fps,
         "root_pos": root_pos,
@@ -141,31 +139,29 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
         "link_body_list": body_names,
     }
 
-
     os.makedirs(os.path.dirname(tgt_file_path), exist_ok=True)
     joblib.dump(motion_data, tgt_file_path)
-        
+
     # Progress print based on tgt_folder
     done = 0
     for root, _, files in os.walk(tgt_folder):
         done += len([f for f in files if f.endswith('.pkl')])
     print(f"Processed {done}/{total_files}: {tgt_file_path}")
-    
+
     if verbose:
         # Get memory snapshot
         snapshot = tracemalloc.take_snapshot()
         top_stats = snapshot.statistics('lineno')
-        
+
         print("\nTop 10 memory-consuming lines:")
         for stat in top_stats[:10]:
             print(stat)
-        
+
         tracemalloc.stop()
-        
+
     # clean cache
     torch.cuda.empty_cache()
     gc.collect()
-    
 
 
 def main():
@@ -177,15 +173,15 @@ def main():
     parser.add_argument("--tgt_folder", type=str,
                         required=True,
                         )
-    
+
     parser.add_argument("--override", default=False, action="store_true")
     parser.add_argument("--num_cpus", default=4, type=int)
     args = parser.parse_args()
-    
+
     # print the total number of cpus and gpus
     print(f"Total CPUs: {mp.cpu_count()}")
     print(f"Using {args.num_cpus} CPUs.")
-    
+
     src_folder = args.src_folder
     tgt_folder = args.tgt_folder
 
@@ -194,7 +190,7 @@ def main():
 
     verbose = False
 
-    hard_motions_paths = [hard_motions_folder / "0.txt", 
+    hard_motions_paths = [hard_motions_folder / "0.txt",
                           hard_motions_folder / "1.txt"]
     hard_motions = []
     for hard_motions_path in hard_motions_paths:
@@ -206,8 +202,7 @@ def main():
                     continue
                 motion_path = motion_path.split(",")[0].strip().split(".")[0]
                 hard_motions.append(motion_path)
-                
-                
+
     args_list = []
     for dirpath, _, filenames in os.walk(src_folder):
         for filename in natsorted(filenames):
@@ -219,10 +214,10 @@ def main():
                 if not os.path.exists(tgt_file_path) or args.override:
                     args_list.append((smplx_file_path, tgt_file_path, args.robot, SMPLX_FOLDER, tgt_folder))
     print("full args_list:", len(args_list))
-    
+
     # remove hard and infeasible motions
     exclude_file_content = ["BMLrub", "EKUT", "crawl", "_lie", "upstairs", "downstairs"]
-    
+
     new_args_list = []
     for arguments in args_list:
         motion_name = arguments[0].split("/")[-1].split('.')[0]
@@ -232,10 +227,9 @@ def main():
             continue
         new_args_list.append(arguments)
     args_list = new_args_list
-    
-    
+
     print("new args_list:", len(args_list))
-    
+
     total_files = len(args_list)
     print(f"Total number of files to process: {total_files}")
     with mp.Pool(args.num_cpus) as pool:
