@@ -44,6 +44,14 @@ python dataset/smplx_to_robot_dataset.py
 --src_folder <path_to_dir_of_smplx_data> 
 --tgt_folder <path_to_dir_to_save_robot_data> 
 --robot unitree_g1
+
+# or directly use GMR's scripts
+bash assets/create_symbolic_link_in_GMR.sh  # create symbolic link to GMR assets
+
+python GMR/scripts/smplx_to_robot_dataset.py 
+--src_folder ./GMR/assets/AMASS 
+--tgt_folder ./GMR/assets/AMASS_retarget 
+--robot unitree_g1
 ```
 
 Post process retargeted data:

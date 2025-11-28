@@ -15,6 +15,9 @@ import torch
 
 
 def foot_detect(positions, thres=0.002):
+    """
+    Detect foot contact based on position data.
+    """
     fid_r, fid_l = 12, 6
     velfactor, heightfactor = np.array([thres]), np.array([0.08])
     feet_l_x = (positions[1:, fid_l, 0] - positions[:-1, fid_l, 0]) ** 2
@@ -36,6 +39,9 @@ def foot_detect(positions, thres=0.002):
 
 
 def cal_contact_mask(dof, root_trans, root_rot):
+    """
+    Calculate the contact mask for the given motion data.
+    """
     motion_dict = {
         "dof": torch.from_numpy(dof).float(),
         "root_trans_offset": torch.from_numpy(root_trans).float(),
@@ -49,6 +55,9 @@ def cal_contact_mask(dof, root_trans, root_rot):
 
 
 def interpolate_motion_data_slerp(root_trans_offset, root_rot, dof, original_fps=30, target_fps=50):
+    """
+    Interpolate motion data using spherical linear interpolation (SLERP).
+    """
     original_frames = root_trans_offset.shape[0]
     original_time = np.linspace(0, original_frames / original_fps, original_frames)
 
@@ -80,6 +89,9 @@ def interpolate_motion_data_slerp(root_trans_offset, root_rot, dof, original_fps
 
 
 def process_pkl_file(input_path, output_path):
+    """
+    Process a single pickle file for motion data.
+    """
     try:
         data = joblib.load(input_path)
 
@@ -112,6 +124,9 @@ def process_pkl_file(input_path, output_path):
 
 
 def process_directory(source_dir, target_dir, file_extension='.pkl'):
+    """
+    Process a directory of pickle files for motion data.
+    """
     os.makedirs(target_dir, exist_ok=True)
 
     pkl_files = []

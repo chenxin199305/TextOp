@@ -167,13 +167,8 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", default="unitree_g1")
-    parser.add_argument("--src_folder", type=str,
-                        required=True,
-                        )
-    parser.add_argument("--tgt_folder", type=str,
-                        required=True,
-                        )
-
+    parser.add_argument("--src_folder", type=str, required=True)
+    parser.add_argument("--tgt_folder", type=str, required=True)
     parser.add_argument("--override", default=False, action="store_true")
     parser.add_argument("--num_cpus", default=4, type=int)
     args = parser.parse_args()
