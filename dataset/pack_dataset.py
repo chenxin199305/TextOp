@@ -11,6 +11,13 @@ DATASET_NAME = "Babel-teach X AMASS Robot"
 BABEL_SPLIT = ['train', 'val']
 FPS = 50
 
+RED = "\033[31m"
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+BLUE = "\033[34m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 
 def process_babel_json(babel_json_path):
     with open(babel_json_path, 'r') as f:
@@ -104,7 +111,7 @@ def load_amass(amass_dir):
     return amass_data
 
 
-def merge_datasets(amass_data, babel_data_all, output_dir):
+def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
     os.makedirs(output_dir, exist_ok=True)
 
     merged_data = {}
@@ -116,9 +123,18 @@ def merge_datasets(amass_data, babel_data_all, output_dir):
             # breakpoint()
             motion = amass_data.get(feat_p, None)
 
-            print(f"split = {split}, feat_p = {feat_p}, motion = {motion}")
+            # print(f"split = {split}, feat_p = {feat_p}, motion = {motion}")
 
-            if motion is None or motion['root_trans_offset'].shape[0] <= 67:
+            if any(content in feat_p for content in custom_exclusions):
+                print(f"{YELLOW}Skipping {feat_p} in {split} due to excluded content{RESET}")
+                continue  # exclude hard and infeasible motions
+
+            if motion is None:
+                print(f"{RED}Skipping {feat_p} in {split} due to missing{RESET}")
+                continue  # no matching AMASS motion
+
+            if motion['root_trans_offset'].shape[0] <= 67:
+                print(f"{BLUE}Skipping {feat_p} in {split} due to short motion data{RESET}")
                 continue  # no matching AMASS motion
 
             if 'motion_len' not in motion.keys():
@@ -136,7 +152,7 @@ def merge_datasets(amass_data, babel_data_all, output_dir):
         merged_data[split] = merged
         output_file = os.path.join(output_dir, f"{split}.pkl")
         joblib.dump(merged, output_file)
-        print(f"Saved {len(merged)} motions to {output_file}")
+        print(f"{GREEN}{BOLD}Saved {len(merged)} motions to {output_file}{RESET}")
 
     stats = {
         'dataset name': DATASET_NAME,
@@ -161,7 +177,16 @@ def merge_datasets(amass_data, babel_data_all, output_dir):
 def main():
     babel_data = load_babel(BABEL_DIR)
     amass_data = load_amass(AMASS_ROBOT_DIR)
-    merge_datasets(amass_data, babel_data, OUTPUT_DIR)
+    output_dir = OUTPUT_DIR
+
+    """
+    Jason 2025-11-29:
+    custom_exclusions 标识一些比较难的动作，然后进行过滤掉，避免在训练集中出现
+    这些动作包括翻滚、爬行、上下楼梯等，主要是因为这些动作比较复杂，可能会影响模型的训练效果
+    """
+    custom_exclusions = ["BMLrub", "EKUT", "crawl", "_lie", "upstairs", "downstairs"]
+
+    merge_datasets(amass_data, babel_data, output_dir, custom_exclusions)
 
 
 if __name__ == "__main__":

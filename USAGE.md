@@ -24,8 +24,8 @@ We tested the project on:
 
 ## Preparing Data and Model
 
-Download the descriptions and pretrained models from HuggingFace: 
-[HuggingFace](https://huggingface.co/datasets/Yochish/TextOp-Data) 
+Download the descriptions and pretrained models from HuggingFace:
+[HuggingFace](https://huggingface.co/datasets/Yochish/TextOp-Data)
 and merge the downloaded folder with this repository.
 
 Please respect the licenses of:
@@ -45,7 +45,7 @@ pip install -e deps/isaac_utils
 pip install -e TextOpRobotMDAR
 # Or: pip install -e TextOpRobotMDAR[dev]
 
-pip install git+https://github.com/openai/CLIP.git
+pip install git+https://github.com/openai/CLIP.git  # This repository provides the datasets.
 ```
 
 Set the environment variables:
@@ -54,8 +54,11 @@ Set the environment variables:
 cd TextOpRobotMDAR
 
 EXPNAME=ExampleRun
-DATADIR=BABEL-AMASS-ROBOT-23dof-FULL-50fps
-DATAFLAGS="data.weighted_sample=true data.datadir=./dataset/${DATADIR} data.action_statistics_path=./dataset/RobotMDAR-statistics/action_statistics.json skeleton.asset.assetRoot=./description/robots/g1/"
+#DATADIR=BABEL-AMASS-ROBOT-23dof-FULL-50fps
+DATADIR=BABEL-AMASS-ROBOT-23dof-50fps-TEACH
+DATAFLAGS="data.weighted_sample=true data.datadir=./dataset/${DATADIR} 
+data.action_statistics_path=./dataset/${DATADIR}/action_statistics.json 
+skeleton.asset.assetRoot=./description/robots/g1/"
 ```
 
 ### Inference
@@ -92,7 +95,6 @@ ${DATAFLAGS} \
 train.manager.stages=[100000,50000,50000] \
 data.num_primitive=4 \
 train.manager.use_rollout=True
-
 
 robotmdar --config-name=train_dar expname=${EXPNAME} \
 ${DATAFLAGS} \

@@ -135,6 +135,9 @@ python dataset/pack_dataset.py
 
 Calculate data sampling weights for RobotMDAR training:
 
+- `data_folder` input the BABEL-packaged data directory generated from above step.
+- `trg_filename` just the file name to save the values, can be `./dataset/action_statistics.json`.
+
 ```bash
 # Generate json data
 python dataset/cal_action_statistics.py 
