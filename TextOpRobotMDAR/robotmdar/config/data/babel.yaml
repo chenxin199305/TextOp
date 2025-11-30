@@ -10,7 +10,8 @@ weighted_sample: false
 frame_weight: false
 use_weighted_meanstd: false
 
-action_statistics_path: ./dataset/action_statistics_telemotion.json
+action_statistics_path: ./dataset/BABEL-AMASS-ROBOT-23dof-FULL-50fps/action_statistics.json
+# action_statistics_path: ./dataset/action_statistics_telemotion.json
 
 # datadir: ./dataset/BABEL-AMASS-ROBOT
 # datadir: ./dataset/BABEL-AMASS-ROBOT-23dof-FULL
