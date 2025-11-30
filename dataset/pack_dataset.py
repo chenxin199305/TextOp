@@ -92,18 +92,20 @@ def process_babel_json(babel_json_path):
     return result
 
 
-def load_babel(BABEL_DIR):
+def load_babel(babel_dir):
     """
     加载 BABEL 数据集目录下的 train.json 和 val.json 文件并解析。
     返回一个 dict: {'train': {...}, 'val': {...}}，内部为 process_babel_json 的结果。
     """
-    print(f"Loading BABEL dataset from: {BABEL_DIR}")
-    babel_all = {}
+    print(f"Loading BABEL dataset from: {babel_dir}")
+
+    babel_data = {}
+
     for split in BABEL_SPLIT:
-        json_path = os.path.join(BABEL_DIR, f"{split}.json")
-        babel_all[split] = process_babel_json(json_path)
-    # print(f"babel_all = {babel_all}")
-    return babel_all
+        json_path = os.path.join(babel_dir, f"{split}.json")
+        babel_data[split] = process_babel_json(json_path)
+
+    return babel_data
 
 
 def load_amass(amass_dir):
@@ -151,6 +153,7 @@ def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
         merged = []
         babel_data = babel_data_all[split]
         for feat_p, babel_entry in tqdm(babel_data.items(), desc=f"Merging {split}", disable=True):
+            # feat_p 示例: "BMLrub/BioMotionLab_NTroje/rub055/0020_lifting_heavy2_poses.npz" 标识动作文件路径
 
             # breakpoint()
             motion = amass_data.get(feat_p, None)
