@@ -1,3 +1,7 @@
+"""模块说明：
+封装 loguru 与标准 logging 的桥接，提供统一的日志初始化函数。
+"""
+
 import logging
 from loguru import logger
 import sys
@@ -10,6 +14,16 @@ from omegaconf import OmegaConf
 class HydraLoggerBridge(logging.Handler):
 
     def emit(self, record):
+        """将标准 logging 记录转发到 loguru 并保留原始调用栈信息。
+
+        参数:
+            record (logging.LogRecord): 标准 logging 生成的日志记录对象。
+
+        行为:
+            - 将 logging 的 level 转换为 loguru 的 level；
+            - 查找原始调用帧以保证日志显示正确的文件/行号；
+            - 使用 logger.opt 设置 depth 与 exception 信息后调用 loguru.log 输出。
+        """
         # Get corresponding loguru level
         try:
             level = logger.level(record.levelname).name
@@ -27,7 +41,18 @@ class HydraLoggerBridge(logging.Handler):
 
 
 def set(cfg):
-    """Set up logging for the training session."""
+    """初始化实验日志系统并保存配置文件。
+
+    参数:
+        cfg: 包含 experiment_dir, expname 等字段的配置对象（通常为 OmegaConf / DictConfig）。
+
+    返回:
+        loguru.logger: 已配置的 loguru logger 实例。
+
+    说明:
+        - 在 cfg.experiment_dir 下创建 run.log 并将控制台日志也输出到 stdout；
+        - 将 Hydra 的配置保存为 cfg.yaml 以便复现。
+    """
     # Create logs directory if it doesn't exist
     log_dir = Path(cfg.experiment_dir)
     log_dir.mkdir(parents=True, exist_ok=True)

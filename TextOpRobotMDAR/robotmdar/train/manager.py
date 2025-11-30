@@ -1,3 +1,9 @@
+"""模块说明：
+训练管理器基类与具体 Manager（MVAEManager/DARManager）实现。
+- 提供训练生命周期控制（pre_step/post_step、保存/加载模型、EMA 支持）
+- 提供 history 选择策略（rollout/static pose）与几何损失计算封装
+"""
+
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -18,11 +24,8 @@ from isaac_utils.rotations import get_euler_xyz
 
 
 class BaseManager(ABC):
-    """
-    Abstract base class for training managers.
-
-    Defines common interfaces and functionality for training management,
-    including EMA support, history selection, and training lifecycle management.
+    """训练管理器基类：封装通用训练/评估计时、LR 衰减、EMA、检查点保存与指标上报逻辑。
+    子类需实现 hold_model/save_model/load_model/calc_loss/update_ema_models 等接口。
     """
     optimizer: torch.optim.Optimizer
     dataset: Any
@@ -79,7 +82,7 @@ class BaseManager(ABC):
         self.static_prob = getattr(self, 'static_prob', 0.0)
 
     def pre_step(self, is_eval: bool = False) -> None:
-        """每步训练前调用"""
+        """每一步训练/评估开始时调用：更新阶段索引、进度条与学习率等元信息。"""
 
         # self._stage_steps 是一个递增的 step 边界列表
         # searchsorted 会查找当前 step 属于第几阶段
@@ -120,7 +123,9 @@ class BaseManager(ABC):
             loss_dict: Dict[str, torch.Tensor] = {},
             extras: Optional[Dict[str, torch.Tensor]] = None
     ) -> None:
-        """每步训练后调用"""
+        """每一步训练/评估结束后调用：上报指标、更新 EMA、保存模型与触发评估流程等。
+        当 is_eval=True 时，聚合 eval 步的 loss 并在 eval 结束时上报平均值。
+        """
         if extras is None:
             extras = {}
 
@@ -182,16 +187,11 @@ class BaseManager(ABC):
             self._total_eval_extras_dict = defaultdict(lambda: torch.tensor(0.0))
 
     def should_eval(self) -> bool:
-        """是否需要评估"""
+        """判断当前是否处于评估阶段（内部计数器 > 0）。"""
         return self._to_eval_steps > 0
 
     def grad_clip(self, model):
-        """
-        Apply gradient clipping to model parameters.
-
-        Args:
-            model: PyTorch model to clip gradients for
-        """
+        """对模型参数进行梯度裁剪（若配置 max_grad_norm > 0）。"""
         if self.max_grad_norm > 0:
             norm = nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
             self.extra['grad_norm'] = norm.detach().cpu().numpy()
@@ -201,13 +201,7 @@ class BaseManager(ABC):
         return self.step < self.max_steps
 
     def register_ema_model(self, name: str, model: nn.Module):
-        """
-        Register a model for EMA (Exponential Moving Average) tracking.
-
-        Args:
-            name: Unique identifier for the model
-            model: PyTorch model to track with EMA
-        """
+        """注册 EMA 模型（复制并冻结参数），便于后续滑动平均更新与保存/加载。"""
         if self.use_ema:
             ema_model = copy.deepcopy(model)
             for param in ema_model.parameters():
@@ -216,75 +210,17 @@ class BaseManager(ABC):
             logger.info(f"Registered EMA model: {name}")
 
     def update_ema(self, name: str, model: nn.Module):
-        """
-        Update EMA model parameters using exponential moving average.
-
-        Args:
-            name: Model identifier
-            model: Current model to update EMA from
-        """
+        """使用指数滑动平均公式更新指定 EMA 模型的参数。"""
         if self.use_ema and name in self.ema_models:
             ema_model = self.ema_models[name]
             for param, ema_param in zip(model.parameters(), ema_model.parameters()):
                 ema_param.data.mul_(self.ema_decay).add_(param.data, alpha=1 - self.ema_decay)
 
     def get_ema_model(self, name: str) -> Optional[nn.Module]:
-        """
-        Get EMA model by name.
-
-        Args:
-            name: Model identifier
-
-        Returns:
-            EMA model if exists, None otherwise
-        """
+        """获取已注册的 EMA 模型（若 enable 且存在则返回，否则返回 None）。"""
         if self.use_ema and name in self.ema_models:
             return self.ema_models[name]
         return None
-
-    @abstractmethod
-    def hold_model(self, *args, **kwargs):
-        """子类实现: 绑定模型和优化器"""
-        pass
-
-    @abstractmethod
-    def save_model(self) -> None:
-        ...
-
-    @abstractmethod
-    def load_model(self) -> None:
-        ...
-
-    @abstractmethod
-    def calc_loss(self, *args, **kwargs) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """子类实现: 计算损失，返回 (terms, extras)"""
-        pass
-
-    def should_rollout(self) -> bool:
-        """
-        Determine whether to use rollout history instead of ground truth.
-
-        Returns:
-            True if should use rollout history, False otherwise
-        """
-        if not self.use_rollout:
-            return False
-        if self.stage_idx < 1:
-            return False
-        prob = min(1.0, (self.step - self.stages[0]) / max(float(self.stages[1]), 1e-6))
-        return torch.rand(1).item() < prob
-
-    def should_static_pose(self) -> bool:
-        """
-        Determine whether to use static pose with perturbation.
-
-        Returns:
-            True if should use static pose, False otherwise
-        """
-        if self.stage_idx < 2 and not self.use_static_pose:
-            return False
-        prob = min(1.0, (self.step - self.stages[1]) / max(float(self.stages[2]), 1e-6)) * self.static_prob
-        return torch.rand(1).item() < prob
 
     def choose_history(
             self,
@@ -292,14 +228,15 @@ class BaseManager(ABC):
             prev_motion: Optional[torch.Tensor] = None,
             history_len: Optional[int] = None
     ) -> torch.Tensor:
-        """
-        统一的history选择函数
-        Args:
-            gt_history: 来自数据集的真实历史 [B, H, D]
-            prev_motion: 前一个primitive的预测结果 [B, T, D]
-            history_len: 历史长度，如果None则使用gt_history的长度
-        Returns:
-            选择的历史 [B, H, D]
+        """统一的历史序列选择器。
+
+        策略:
+            1. 当配置允许且满足阶段条件时，可能使用 rollout（模型输出）作为历史；
+            2. 当配置开启 static pose 时，可以用零初始化姿势并加扰动替代真实历史；
+            3. 否则使用来自数据集的 ground-truth 历史。
+
+        返回:
+            选择后的历史张量，形状 [B, H, D]
         """
         if history_len is None:
             history_len = gt_history.shape[1]
@@ -324,9 +261,42 @@ class BaseManager(ABC):
         return history_motion
 
     @abstractmethod
-    def update_ema_models(self):
-        """子类实现: 更新EMA模型"""
+    def hold_model(self, *args, **kwargs):
+        """子类实现: 绑定模型和优化器"""
         pass
+
+    @abstractmethod
+    def save_model(self) -> None:
+        ...
+
+    @abstractmethod
+    def load_model(self) -> None:
+        ...
+
+    @abstractmethod
+    def calc_loss(self, *args, **kwargs) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        """子类实现: 计算损失，返回 (terms, extras)"""
+        pass
+
+    def update_ema_models(self):
+        """子类实现：对各自需要维护的 EMA 模型执行更新（例如 'vae' 或 'denoiser'）。"""
+        pass
+
+    def should_rollout(self) -> bool:
+        """决定是否使用 rollout 作为历史：基于 use_rollout、阶段索引与逐步线性增长的概率。"""
+        if not self.use_rollout:
+            return False
+        if self.stage_idx < 1:
+            return False
+        prob = min(1.0, (self.step - self.stages[0]) / max(float(self.stages[1]), 1e-6))
+        return torch.rand(1).item() < prob
+
+    def should_static_pose(self) -> bool:
+        """决定是否使用 static pose：基于阶段与 static_prob 的线性增长概率。"""
+        if self.stage_idx < 2 and not self.use_static_pose:
+            return False
+        prob = min(1.0, (self.step - self.stages[1]) / max(float(self.stages[2]), 1e-6)) * self.static_prob
+        return torch.rand(1).item() < prob
 
 
 class GeometryLoss:
@@ -592,6 +562,7 @@ class MVAEManager(BaseManager, GeometryLoss):
     static_prob: float
 
     def hold_model(self, vae, optimizer, dataset):
+        """绑定 VAE 模型与优化器，并注册 EMA 模型。"""
         self.vae = vae.to(self.device)
         self.optimizer = optimizer
         self.dataset = dataset
@@ -610,17 +581,14 @@ class MVAEManager(BaseManager, GeometryLoss):
                   future_motion_pred,
                   dist,
                   history_motion=None) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        """计算损失：重构损失、KL 散度与几何损失等"""
+
         loss = {}
         extras = {}
 
         # 重构损失
         rec_loss = self.rec_criterion(future_motion_pred, future_motion_gt)
         loss['rec'] = rec_loss
-
-        # if self.loss_weight['smooth'] > 0.0:
-        #     recon_diff = future_motion_pred[:, 1:, :] - future_motion_pred[:, :-1, :]
-        #     true_diff = future_motion_gt[:, 1:, :] - future_motion_gt[:, :-1, :]
-        #     terms['smooth'] = self.rec_criterion(recon_diff, true_diff)
 
         # KL损失
         mu_ref = torch.zeros_like(dist.loc)
@@ -714,6 +682,7 @@ class DARManager(BaseManager, GeometryLoss):
     use_full_sample: bool
 
     def hold_model(self, vae, denoiser, optimizer, dataset):
+        """绑定 VAE 与去噪模型及优化器，并注册 EMA 模型。"""
         self.vae = vae.to(self.device)
         self.denoiser = denoiser.to(self.device)
         self.optimizer = optimizer
