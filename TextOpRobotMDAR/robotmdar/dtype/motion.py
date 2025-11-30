@@ -18,7 +18,6 @@ CONTACT_MASK_DIM = 2  # 2 feet
 
 G1_ROOT_HEIGHT = 0.77  # meters
 
-
 # Define MotionDict with explicit component shapes
 
 MotionKeys: List[str] = ['root_trans_offset', 'dof', 'root_rot', 'contact_mask']
@@ -97,7 +96,7 @@ def motion_dict_to_abs_pose(motion_dict: MotionDict, idx: int = -1) -> AbsoluteP
 
 def motion_dict_to_qpos(motion_dict: MotionDict) -> Tuple[QPos, torch.Tensor]:
     batch_shape = motion_dict['root_trans_offset'].shape[:-1]
-    qpos = torch.zeros(batch_shape + (n_qpos, ), device=motion_dict['root_trans_offset'].device)
+    qpos = torch.zeros(batch_shape + (n_qpos,), device=motion_dict['root_trans_offset'].device)
     qpos[..., :3] = motion_dict['root_trans_offset']
     qpos[..., 3:7] = motion_dict['root_rot']
     qpos[..., 7:] = motion_dict['dof']
@@ -106,7 +105,6 @@ def motion_dict_to_qpos(motion_dict: MotionDict) -> Tuple[QPos, torch.Tensor]:
 
 
 def motion_dict_to_feature_v0(motion_dict: MotionDict) -> MotionFeatureV0:
-
     components = [
         motion_dict['root_trans_offset'], motion_dict['root_rot'], motion_dict['dof'], motion_dict['contact_mask']
     ]
@@ -233,12 +231,12 @@ def motion_feature_to_dict_v1(motion_feature: MotionFeatureV1, abs_pose: Optiona
 
 @torch.jit.script
 def __jitable_motion_dict_to_feature_v2__(
-    trans: torch.Tensor, rot: torch.Tensor, dof: torch.Tensor, contact: torch.Tensor
+        trans: torch.Tensor, rot: torch.Tensor, dof: torch.Tensor, contact: torch.Tensor
 ) -> MotionFeatureV2:
     B, T_plus_1, _ = trans.shape
     T = T_plus_1 - 1  # 输出T帧
     # 只使用前T帧的高度
-    height = trans[:, :T, 2]  #- 0.8
+    height = trans[:, :T, 2]  # - 0.8
 
     # 计算前T帧的欧拉角
     euler = quaternion_to_euler_angles(rot[:, :T + 1])
@@ -347,7 +345,7 @@ def motion_feature_to_dict_v2(motion_feature: MotionFeatureV2, abs_pose: Optiona
     delta_yaw = motion_feature[..., 4]  # (t+1) - t
     contact = motion_feature[..., 5:7]
     delta_trans_local = motion_feature[..., 7:10]  # (t+1) - t
-    height = motion_feature[..., 10]  #+ 0.8  # 高度
+    height = motion_feature[..., 10]  # + 0.8  # 高度
     dof = motion_feature[..., 11:34]  # (B, T, 23)
     delta_dof = motion_feature[..., 34:]  # (B,T, 23) (t+1) - t
 
@@ -393,12 +391,12 @@ def motion_feature_to_dict_v2(motion_feature: MotionFeatureV2, abs_pose: Optiona
 
 # @torch.jit.script
 def __jitable_motion_dict_to_feature_v3__(
-    trans: torch.Tensor, rot: torch.Tensor, dof: torch.Tensor, contact: torch.Tensor
+        trans: torch.Tensor, rot: torch.Tensor, dof: torch.Tensor, contact: torch.Tensor
 ) -> MotionFeatureV3:
     B, T_plus_1, _ = trans.shape
     T = T_plus_1 - 1  # 输出T帧
     # 只使用前T帧的高度
-    height = trans[:, :T, 2]  #- 0.8
+    height = trans[:, :T, 2]  # - 0.8
 
     # 计算前T帧的欧拉角
     euler = quaternion_to_euler_angles(rot[:, :T + 1])
@@ -508,7 +506,7 @@ def motion_feature_to_dict_v3(motion_feature: MotionFeatureV3, abs_pose: Optiona
     delta_yaw = motion_feature[..., 4]  # (t+1) - t
     contact = motion_feature[..., 5:7]
     delta_trans_local = motion_feature[..., 7:10]  # (t+1) - t
-    height = motion_feature[..., 10]  #+ 0.8  # 高度
+    height = motion_feature[..., 10]  # + 0.8  # 高度
     dof = motion_feature[..., 11:34]  # (B, T, 23)
     delta_dof = motion_feature[..., 34:]  # (B,T, 23) (t+1) - t
 
@@ -709,7 +707,6 @@ def extract_yaw_from_rotation(rotmat):
 
 
 def motion_feature_to_dict_v4(motion_feature, abs_pose):
-
     if len(motion_feature.shape) == 2:
         expanded = True
         motion_feature = motion_feature.unsqueeze(0)
@@ -738,9 +735,9 @@ def motion_feature_to_dict_v4(motion_feature, abs_pose):
     contact = motion_feature[..., -2:]  # [B, T, 2]
 
     assert joints_feature.shape[
-        -1] == (DOF_DIM + 4) * 3, f"joints_feature shape: {joints_feature.shape}, expected last dim {DOF_DIM*3}"
+               -1] == (DOF_DIM + 4) * 3, f"joints_feature shape: {joints_feature.shape}, expected last dim {DOF_DIM * 3}"
     assert joints_delta.shape[
-        -1] == (DOF_DIM + 4) * 3, f"joints_delta shape: {joints_delta.shape}, expected last dim {DOF_DIM*3}"
+               -1] == (DOF_DIM + 4) * 3, f"joints_delta shape: {joints_delta.shape}, expected last dim {DOF_DIM * 3}"
 
     # root_rot = wxyz_to_xyzw(matrix_to_quaternion(rot6d_to_matrix(rot_6d_feature)))
     root_rot_mat = rot6d_to_matrix(rot_6d_feature)
@@ -965,7 +962,7 @@ def __jitable_motion_dict_to_feature_v5__(trans, rot, dof, contact, joints):
     B, T_plus_1, _ = trans.shape
     T = T_plus_1 - 1  # 输出T帧
     # 只使用前T帧的高度
-    height = trans[:, :T, 2]  #- 0.8
+    height = trans[:, :T, 2]  # - 0.8
 
     # 计算前T帧的欧拉角
     euler = quaternion_to_euler_angles(rot[:, :T + 1])
@@ -1103,7 +1100,7 @@ def motion_feature_to_dict_v5(motion_feature, abs_pose):
     delta_trans_local = motion_feature[..., 10:13]  # (t+1) - t
     joints_local = motion_feature[..., 13:13 + joints_feature_dim]  # (B, T, (DoF_DIM+4)*3)
     delta_joints_local = motion_feature[..., 13 + joints_feature_dim:13 + 2 * joints_feature_dim]
-    height = motion_feature[..., 13 + 2 * joints_feature_dim]  #+ 0.8  # 高度
+    height = motion_feature[..., 13 + 2 * joints_feature_dim]  # + 0.8  # 高度
     dof = motion_feature[..., -46:-23]  # (B, T, 23)
     delta_dof = motion_feature[..., -23:]  # (B,T, 23) (t+1) - t
 
@@ -1175,17 +1172,17 @@ motion_feature_dim_v1 = (4 + 1 + 2 + 3 + 1 + DOF_DIM)
 motion_feature_dim_v2 = (4 + 1 + 2 + 3 + 1 + DOF_DIM + DOF_DIM)
 motion_feature_dim_v3 = (4 + 1 + 2 + 3 + 1 + DOF_DIM + DOF_DIM)
 motion_feature_dim_v4 = (3 + 6 + DOF_DIM + 3 + 6 + (DOF_DIM + 4) * 3 + (DOF_DIM + 4) * 3 + 2)  # 181
-motion_feature_dim_v5 = (4 + 1 + 2 + 3 + 3 + (DOF_DIM + 4) * 3 + (DOF_DIM + 4) * 3 + 1 + DOF_DIM + DOF_DIM)  #  222
+motion_feature_dim_v5 = (4 + 1 + 2 + 3 + 3 + (DOF_DIM + 4) * 3 + (DOF_DIM + 4) * 3 + 1 + DOF_DIM + DOF_DIM)  # 222
 
 
 def get_zero_abs_pose(batch_shape: Tuple[int, ...], device: str = 'cuda') -> AbsolutePose:
-    root_rot = torch.zeros(batch_shape + (4, ), device=device)
+    root_rot = torch.zeros(batch_shape + (4,), device=device)
     root_rot[..., 3] = 1.0
     # root_rot[..., 2] = 1.0
     # root_rot[..., 2] = 0.6
     # root_rot[..., 3] = 0.8
 
-    return {'root_trans_offset': torch.zeros(batch_shape + (3, ), device=device), 'root_rot': root_rot}
+    return {'root_trans_offset': torch.zeros(batch_shape + (3,), device=device), 'root_rot': root_rot}
 
 
 def get_zero_feature_v1() -> MotionFeatureV1:
@@ -1283,7 +1280,7 @@ def perturb_feature_v3(motion_feature: MotionFeatureV3, scale: float) -> MotionF
     perturbed[..., :4] = motion_feature[..., :4] + sincos_noise
     # 重新归一化sin/cos对
     for i in range(0, 4, 2):
-        norm = torch.sqrt(perturbed[..., i]**2 + (perturbed[..., i + 1] + 1)**2)
+        norm = torch.sqrt(perturbed[..., i] ** 2 + (perturbed[..., i + 1] + 1) ** 2)
         perturbed[..., i] /= norm
         perturbed[..., i + 1] = (perturbed[..., i + 1] + 1) / norm - 1
 
