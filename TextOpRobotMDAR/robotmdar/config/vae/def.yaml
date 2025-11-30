@@ -1,12 +1,12 @@
-_target_: robotmdar.model.mld_vae.AutoMldVae
-nfeats: ${..nfeats}
-latent_dim: [ 1, 128 ]
-h_dim: 512    # 512
-ff_size: 1024     # 1024
-num_layers: 9
-num_heads: 4
-dropout: 0.1
-arch: all_encoder
-normalize_before: false
-activation: gelu
-position_embedding: learned
+_target_: robotmdar.model.mld_vae.AutoMldVae # 模型类路径（可导入的类）
+nfeats: ${..nfeats} # 特征维度，从上级配置引用
+latent_dim: [ 1, 128 ] # 潜在空间维度，[channels, length] 或 [rows, cols]
+h_dim: 512    # 隐藏层维度（隐藏表示大小，常用于 Transformer/编码器）
+ff_size: 1024     # 前馈网络维度（feed-forward 层的中间维度）
+num_layers: 9 # 编码器/解码器层数
+num_heads: 4 # 多头注意力头数
+dropout: 0.1 # dropout 比例，用于正则化
+arch: all_encoder # 架构类型（例如全编码器、编码器-解码器等）
+normalize_before: false # 是否在子层前进行层归一化（Pre-LN）
+activation: gelu # 激活函数类型
+position_embedding: learned # 位置嵌入类型（learned 表示可训练的位置嵌入）

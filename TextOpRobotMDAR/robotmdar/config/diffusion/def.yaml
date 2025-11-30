@@ -1,36 +1,36 @@
-num_timesteps: 5    # 10
+num_timesteps: 5    # 10  # 总扩散步数。原始示例为10，这里为快速测试设置为5（用于调试/加速）
 
 model:
-  _target_: robotmdar.diffusion.respace.SpacedDiffusion
+  _target_: robotmdar.diffusion.respace.SpacedDiffusion  # 使用的扩散调度/重采样类
   use_timesteps:
-    _target_: robotmdar.diffusion.respace.space_timesteps
-    num_timesteps: ${...num_timesteps}
+    _target_: robotmdar.diffusion.respace.space_timesteps  # 生成要使用的时间步函数
+    num_timesteps: ${...num_timesteps}  # 使用上面定义的总步数
     section_counts:
-      - ${..num_timesteps}
+      - ${..num_timesteps}  # 各分段步数设置，当前仅一段，等于总步数
 
   betas:
-    _target_: robotmdar.diffusion.gaussian_diffusion.get_named_beta_schedule
-    schedule_name: "cosine"
-    num_diffusion_timesteps: ${...num_timesteps}
+    _target_: robotmdar.diffusion.gaussian_diffusion.get_named_beta_schedule  # beta 调度获取函数
+    schedule_name: "cosine"  # beta 调度名称（例如 "cosine"）
+    num_diffusion_timesteps: ${...num_timesteps}  # beta 序列的长度，通常等于总步数
 
   model_mean_type:
-    _target_: robotmdar.dtype.enum.make_enum
-    enum_path: robotmdar.diffusion.gaussian_diffusion.ModelMeanType
-    name: START_X
+    _target_: robotmdar.dtype.enum.make_enum  # 将字符串映射为枚举类型
+    enum_path: robotmdar.diffusion.gaussian_diffusion.ModelMeanType  # 枚举路径
+    name: START_X  # 模型预测的均值类型（例如 START_X 表示预测起始 x）
 
   model_var_type:
-    _target_: robotmdar.dtype.enum.make_enum
-    enum_path: robotmdar.diffusion.gaussian_diffusion.ModelVarType
-    name: FIXED_SMALL
+    _target_: robotmdar.dtype.enum.make_enum  # 将字符串映射为枚举类型
+    enum_path: robotmdar.diffusion.gaussian_diffusion.ModelVarType  # 枚举路径
+    name: FIXED_SMALL  # 模型方差类型（例如 FIXED_SMALL 表示固定小方差）
 
   loss_type:
-    _target_: robotmdar.dtype.enum.make_enum
-    enum_path: robotmdar.diffusion.gaussian_diffusion.LossType
-    name: MSE
+    _target_: robotmdar.dtype.enum.make_enum  # 损失类型枚举
+    enum_path: robotmdar.diffusion.gaussian_diffusion.LossType  # 枚举路径
+    name: MSE  # 损失函数类型：均方误差 (Mean Squared Error)
 
-  rescale_timesteps: false       # false
+  rescale_timesteps: false       # false  # 是否对时间步进行重新缩放，常用于不同实现间兼容性
 
 schedule_sampler:
-  _target_: robotmdar.diffusion.resample.create_named_schedule_sampler
-  name: "uniform"
-  diffusion: ${..model}
+  _target_: robotmdar.diffusion.resample.create_named_schedule_sampler  # 调度采样器的工厂函数
+  name: "uniform"  # 采样策略名称（例如 "uniform" 均匀采样）
+  diffusion: ${..model}  # 绑定上面定义的 model 配置

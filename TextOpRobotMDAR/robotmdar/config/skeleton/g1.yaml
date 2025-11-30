@@ -1,36 +1,37 @@
-motion_lib_type: 'origin'
+motion_lib_type: 'origin' # 运动库类型（origin 表示原始运动库）
 asset:
   # Download the description file from PBHC project.
-  assetRoot: "description/robots/g1/"
-  assetFileName: "g1_23dof_lock_wrist_fitmotionONLY.xml"
+  # 从 PBHC 项目下载描述文件
+  assetRoot: "description/robots/g1/" # 资源根路径（相对于项目）
+  assetFileName: "g1_23dof_lock_wrist_fitmotionONLY.xml" # 资源文件名（机器人描述文件）
 
 
-humanoid_type: g1_23dof_lock_wrist
-bias_offset: False
-has_self_collision: True
-has_mesh: False
-has_jt_limit: False
-has_dof_subset: True
-has_upright_start: True
-has_smpl_pd_offset: False
-remove_toe: False # For humanoid's geom toe
-motion_sym_loss: False
-sym_loss_coef: 1
-big_ankle: True
+humanoid_type: g1_23dof_lock_wrist # 人形类型标识
+bias_offset: False # 是否使用偏置偏移
+has_self_collision: True # 是否启用自碰撞检测
+has_mesh: False # 是否包含网格（mesh）
+has_jt_limit: False # 是否包含关节限制
+has_dof_subset: True # 是否使用自由度子集（部分关节）
+has_upright_start: True # 是否以直立姿态开始
+has_smpl_pd_offset: False # 是否使用 SMPL PD 偏移
+remove_toe: False # 是否移除脚趾几何（用于 humanoid 的 geom toe）
+motion_sym_loss: False # 是否使用运动对称性损失
+sym_loss_coef: 1 # 对称性损失系数
+big_ankle: True # 是否使用较大的踝部模型
 
-has_shape_obs: false
-has_shape_obs_disc: false
-has_shape_variation: False
+has_shape_obs: false # 是否有形状观测
+has_shape_obs_disc: false # 是否有离散形状观测
+has_shape_variation: False # 是否允许形状变体
 
-masterfoot: False
-freeze_toe: false
-freeze_hand: False
-box_body: True
-real_weight: True
-real_weight_porpotion_capsules: True
-real_weight_porpotion_boxes: True
+masterfoot: False # 是否使用主脚配置
+freeze_toe: false # 是否冻结脚趾
+freeze_hand: False # 是否冻结手部
+box_body: True # 是否用盒子近似身体
+real_weight: True # 是否使用真实质量/重量
+real_weight_porpotion_capsules: True # 胶囊比例使用真实重量
+real_weight_porpotion_boxes: True # 盒子比例使用真实重量
 
-body_names: [
+body_names: [ # 机器人身体部分名称列表（含扩展的 link）
   'pelvis',
   'left_hip_pitch_link', 'left_hip_roll_link', 'left_hip_yaw_link', 'left_knee_link', 'left_ankle_pitch_link', 'left_ankle_roll_link',
   'right_hip_pitch_link', 'right_hip_roll_link', 'right_hip_yaw_link', 'right_knee_link', 'right_ankle_pitch_link', 'right_ankle_roll_link',
@@ -40,13 +41,13 @@ body_names: [
 ]
 
 limb_weight_group:
-  - [ 'left_hip_pitch_link', 'left_hip_roll_link', 'left_hip_yaw_link', 'left_knee_link', 'left_ankle_pitch_link', 'left_ankle_roll_link' ]
-  - [ 'right_hip_pitch_link', 'right_hip_roll_link', 'right_hip_yaw_link', 'right_knee_link', 'right_ankle_pitch_link', 'right_ankle_roll_link' ]
-  - [ 'pelvis', 'waist_yaw_link', 'waist_roll_link', 'torso_link' ]
-  - [ 'left_shoulder_pitch_link', 'left_shoulder_roll_link', 'left_shoulder_yaw_link', 'left_elbow_link' ]
-  - [ 'right_shoulder_pitch_link', 'right_shoulder_roll_link', 'right_shoulder_yaw_link', 'right_elbow_link' ]
+  - [ 'left_hip_pitch_link', 'left_hip_roll_link', 'left_hip_yaw_link', 'left_knee_link', 'left_ankle_pitch_link', 'left_ankle_roll_link' ] # 左下肢权重组
+  - [ 'right_hip_pitch_link', 'right_hip_roll_link', 'right_hip_yaw_link', 'right_knee_link', 'right_ankle_pitch_link', 'right_ankle_roll_link' ] # 右下肢权重组
+  - [ 'pelvis', 'waist_yaw_link', 'waist_roll_link', 'torso_link' ] # 躯干权重组
+  - [ 'left_shoulder_pitch_link', 'left_shoulder_roll_link', 'left_shoulder_yaw_link', 'left_elbow_link' ] # 左上肢权重组
+  - [ 'right_shoulder_pitch_link', 'right_shoulder_roll_link', 'right_shoulder_yaw_link', 'right_elbow_link' ] # 右上肢权重组
 
-dof_names: [
+dof_names: [ # 控制/自由度名称列表（用于动作/控制）
   'left_hip_pitch_link', 'left_hip_roll_link', 'left_hip_yaw_link', 'left_knee_link', 'left_ankle_pitch_link', 'left_ankle_roll_link',
   'right_hip_pitch_link', 'right_hip_roll_link', 'right_hip_yaw_link', 'right_knee_link', 'right_ankle_pitch_link', 'right_ankle_roll_link',
   'waist_yaw_link', 'waist_roll_link', 'torso_link',
@@ -54,34 +55,34 @@ dof_names: [
   'right_shoulder_pitch_link', 'right_shoulder_roll_link', 'right_shoulder_yaw_link', 'right_elbow_link'
 ]
 
-foot_names: [ 'left_ankle_roll_link', 'right_ankle_roll_link' ]
+foot_names: [ 'left_ankle_roll_link', 'right_ankle_roll_link' ] # 脚部名，用于足端检测/接触
 # right_foot_name: 'r_foot_roll'
 # left_foot_name: 'l_foot_roll'
 
 
-nums_extend_bodies: 3
+nums_extend_bodies: 3 # 扩展节点数量
 extend_config:
-  - joint_name: "left_hand_link"
-    parent_name: "left_elbow_link"
-    pos: [ 0.25, 0.0, 0.0 ]
-    rot: [ 1.0, 0.0, 0.0, 0.0 ] # w x y z
-  - joint_name: "right_hand_link"
-    parent_name: "right_elbow_link"
-    pos: [ 0.25, 0.0, 0.0 ]
-    rot: [ 1.0, 0.0, 0.0, 0.0 ] # w x y z
-  - joint_name: "head_link"
-    parent_name: "torso_link"
-    pos: [ 0.0, 0.0, 0.42 ]
-    rot: [ 1.0, 0.0, 0.0, 0.0 ] # w x y z
+  - joint_name: "left_hand_link" # 扩展的关节/节点名称（左手）
+    parent_name: "left_elbow_link" # 父节点（左臂肘）
+    pos: [ 0.25, 0.0, 0.0 ] # 相对父节点的位置（x,y,z）
+    rot: [ 1.0, 0.0, 0.0, 0.0 ] # 旋转四元数（w x y z）注：单位四元数
+  - joint_name: "right_hand_link" # 扩展的关节/节点名称（右手）
+    parent_name: "right_elbow_link" # 父节点（右臂肘）
+    pos: [ 0.25, 0.0, 0.0 ] # 相对父节点的位置（x,y,z）
+    rot: [ 1.0, 0.0, 0.0, 0.0 ] # 旋转四元数（w x y z）
+  - joint_name: "head_link" # 扩展的关节/节点名称（头部）
+    parent_name: "torso_link" # 父节点（躯干）
+    pos: [ 0.0, 0.0, 0.42 ] # 位置（头部通常位于躯干上方）
+    rot: [ 1.0, 0.0, 0.0, 0.0 ] # 旋转四元数（w x y z）
 
 
 motion_tracking_link:
-  - "left_hand_link"
-  - "right_hand_link"
-  - "head_link"
+  - "left_hand_link" # 运动追踪链：左手
+  - "right_hand_link" # 右手
+  - "head_link" # 头部
 
 lower_body_link:
-  - "pelvis"
+  - "pelvis" # 下半身链（骨盆）
   - "left_hip_pitch_link"
   - "left_hip_roll_link"
   - "left_hip_yaw_link"
@@ -96,7 +97,7 @@ lower_body_link:
   - "right_ankle_roll_link"
   - "waist_yaw_link"
   - "waist_roll_link"
-  - "torso_link"
+  - "torso_link" # 下半身包含躯干底部
 
 upper_body_link:
   - "left_shoulder_pitch_link"
@@ -109,21 +110,21 @@ upper_body_link:
   - "right_elbow_link"
   - "left_hand_link"
   - "right_hand_link"
-  - "head_link"
+  - "head_link" # 上半身链（包含手和头部）
 
 
-pelvis_link: "pelvis"
-base_link: "torso_link"
+pelvis_link: "pelvis" # 骨盆链接名
+base_link: "torso_link" # 基准链接（通常用于全局位姿）
 hips_link:
   - "left_hip_pitch_link"
   - "left_hip_roll_link"
   - "left_hip_yaw_link"
   - "right_hip_pitch_link"
   - "right_hip_roll_link"
-  - "right_hip_yaw_link"
+  - "right_hip_yaw_link" # 臀部相关关节列表
 
 joint_matches:
-  - [ "pelvis", "Pelvis" ]
+  - [ "pelvis", "Pelvis" ] # 名称匹配（左侧项目内名称，右侧可能为外部/SMPL 名称）
   - [ "left_hip_pitch_link", "L_Hip" ]
   - [ "left_knee_link", "L_Knee" ]
   - [ "left_ankle_roll_link", "L_Ankle" ]
@@ -136,21 +137,21 @@ joint_matches:
   - [ "right_shoulder_roll_link", "R_Shoulder" ]
   - [ "right_elbow_link", "R_Elbow" ]
   - [ "right_hand_link", "R_Hand" ]
-  - [ "head_link", "Head" ]
+  - [ "head_link", "Head" ] # 关节映射表（用于不同命名空间的匹配）
 
 
 smpl_pose_modifier:
-  - Pelvis: "[np.pi/2, 0, np.pi/2]"
-  - L_Shoulder: "[0, 0, -np.pi/2]"
-  - R_Shoulder: "[0, 0, np.pi/2]"
-  - L_Elbow: "[0, -np.pi/2, 0]"
-  - R_Elbow: "[0, np.pi/2, 0]"
+  - Pelvis: "[np.pi/2, 0, np.pi/2]" # SMPL 姿态修正（弧度列表）
+  - L_Shoulder: "[0, 0, -np.pi/2]" # 左肩修正
+  - R_Shoulder: "[0, 0, np.pi/2]" # 右肩修正
+  - L_Elbow: "[0, -np.pi/2, 0]" # 左肘修正
+  - R_Elbow: "[0, np.pi/2, 0]" # 右肘修正
 
 
 visualization:
-  customize_color: True
+  customize_color: True # 是否自定义可视化颜色
   marker_joint_colors:
-    - [ 0.929, 0.867, 0.437 ] # pelvis
+    - [ 0.929, 0.867, 0.437 ] # pelvis（标记颜色，RGB）
     - [ 0.929, 0.867, 0.437 ] # left_hip_yaw_joint
     - [ 0.929, 0.867, 0.437 ] # left_hip_roll_joint
     - [ 0.929, 0.867, 0.437 ] # left_hip_pitch_joint
@@ -174,6 +175,6 @@ visualization:
     - [ 0.929, 0.867, 0.437 ] # right_shoulder_roll_joint
     - [ 0.929, 0.867, 0.437 ] # right_shoulder_yaw_joint
     - [ 0.929, 0.867, 0.437 ] # right_elbow_joint
-    - [ 0, 0.351, 0.613 ] # left_elbow_joint_extend
-    - [ 0, 0.351, 0.613 ] # right_elbow_joint_extend
-    - [ 0, 0.351, 0.613 ] # head_link
+    - [ 0, 0.351, 0.613 ] # left_elbow_joint_extend（扩展肘部颜色）
+    - [ 0, 0.351, 0.613 ] # right_elbow_joint_extend（扩展肘部颜色）
+    - [ 0, 0.351, 0.613 ] # head_link（头部颜色）

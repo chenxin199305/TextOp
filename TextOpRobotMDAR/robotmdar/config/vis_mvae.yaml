@@ -3,7 +3,7 @@ defaults:
   - base
   - _self_
 
-expname: vis
+expname: VAE
 task: vis-mvae
 
 

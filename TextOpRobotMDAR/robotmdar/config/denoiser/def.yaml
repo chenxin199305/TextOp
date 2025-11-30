@@ -1,13 +1,13 @@
-_target_: robotmdar.model.mld_denoiser.DenoiserTransformer
-h_dim: 512
-ff_size: 1024
-num_layers: 8
-num_heads: 4
-dropout: 0.1
-activation: gelu
-clip_dim: 512
+_target_: robotmdar.model.mld_denoiser.DenoiserTransformer # 模型类路径（Python 可导入的类）
+h_dim: 512 # Transformer 隐藏层维度
+ff_size: 1024 # 前馈网络维度（feed-forward layer size）
+num_layers: 8 # Transformer 层数
+num_heads: 4 # 自注意力头数
+dropout: 0.1 # dropout 比例
+activation: gelu # 激活函数类型
+clip_dim: 512 # 条件/文本嵌入维度（例如 CLIP embedding 维度）
 history_shape:
-  - 2
-  - ${...nfeats}
-noise_shape: [ 1, 128 ]
-cond_mask_prob: 0.1
+  - 2 # 历史维度第一个值（例如时间或通道数量）
+  - ${...nfeats} # 历史维度第二个值，使用 Hydra/OmegaConf 的插值引用（nfeats）
+noise_shape: [ 1, 128 ] # 噪声张量形状，[channels, length] 或 [batch_dim, noise_dim]（示例）
+cond_mask_prob: 0.1 # 条件掩码概率，训练时随机屏蔽条件输入以提高鲁棒性
