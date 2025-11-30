@@ -1,13 +1,6 @@
 # python
-"""
-Final Clean High-Performance Data Loader for Robot Motion Primitive Dataset
-
-This is a clean, well-structured implementation with:
-1. Motion-first generation ensuring primitive continuity
-2. Small, focused functions for better readability
-3. 100% interface compatibility with original
-"""
-# 高性能数据加载器，用于机器人运动原语数据集（含中文注释）
+# Final Clean High-Performance Data Loader for Robot Motion Primitive Dataset
+# 高性能机器人运动原语数据集加载器（最终版）
 
 from pathlib import Path
 import numpy as np
@@ -32,16 +25,18 @@ import json
 class SkeletonPrimitiveDataset(data.IterableDataset):
     """
     Clean, high-performance SkeletonPrimitiveDataset with motion-first generation.
-    Key features:
-    - Motion-first generation ensuring primitive continuity
-    - Small, focused functions for better readability
-    - 100% interface compatibility with original
+    清晰且高性能的骨架原语数据集（motion-first 生成策略）
+    主要特点：
+    - 以运动为优先的生成方式，保证原语之间连续性
+    - 小而专注的函数，便于阅读和维护
+    - 与原始接口完全兼容
     """
 
     # 数据集类：按运动优先（motion-first）生成原语，保证原语间连续性
 
     # ===============================================================
     # Load & build dataset
+    # 加载与构建数据集相关方法
 
     def __init__(
             self,
@@ -62,7 +57,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
     ):
         super().__init__()
 
-        # Store parameters
+        # 保存构造参数
         self.batch_size = batch_size
         self.history_len = history_len
         self.future_len = future_len
@@ -82,12 +77,12 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
         self.datadir = Path(datadir)
         self.split = split
-        self.device = "cpu"  # Keep embeddings on CPU initially  \# 初始将文本嵌入放在 CPU
+        self.device = "cpu"  # 初始将文本嵌入放在 CPU（延迟移动到 GPU）
 
-        # Load and prepare data
+        # 加载并准备数据
         self._load_data()
 
-        # Initialize skeleton and normalization
+        # 初始化骨架与归一化工具
         self.skeleton = RobotSkeleton(device=self.device, cfg=robot_cfg)
 
         if self.weighted_sample and self.use_weighted_meanstd:
@@ -97,10 +92,11 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def _load_data(self) -> None:
         """Load and prepare data efficiently"""
+        # 加载并准备数据的主流程（包括统计、筛选、文本嵌入等）
         logger.info(f" Loading {self.split} data...")
         self._load_statistics()
 
-        # Load data files
+        # 根据 split 加载 pkl 数据文件
         if self.split == 'none':
             return
         splits = ['train', 'val'] if self.split == 'all' else [self.split]
@@ -110,7 +106,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
             assert datapkl.exists(), f"Data file {datapkl} does not exist"
             all_data.extend(joblib.load(datapkl))
 
-        # Fix length labels and filter valid samples
+        # 修正长度标签并筛选有效样本（长度 >= segment_len）
         self.valid_indices = []
         for i, item in enumerate(all_data):
             # item['motion']['motion_len'] 存储原始序列帧长
@@ -126,7 +122,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
         logger.info(f" Found {len(self.valid_indices)} valid samples out of {len(self.raw_data)}")
 
-        # Load text embeddings (缓存或计算)
+        # 加载或计算文本嵌入（缓存优先）
         self._load_text_embeddings()
 
     def _cal_sample_weight(self):
@@ -200,14 +196,16 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def _load_statistics(self) -> None:
         """Load motion statistics"""
+        # 从 datadir/statistics.yaml 中读取全局运动统计（如 fps）
         statistics_yaml = self.datadir / 'statistics.yaml'
         with open(statistics_yaml, 'r') as f:
             self.statistics = yaml.safe_load(f)
-        # fps 用于将帧索引转换为时间
+        # fps 用于将帧索引转换为时间（秒）
         self.fps = self.statistics['fps']
 
     def _load_text_embeddings(self) -> None:
         """Load or compute text embeddings"""
+        # 加载或计算文本嵌入（使用 CLIP，优先缓存）
         text_embedding_path = self.datadir / f'{self.split}_text_embed.pkl'
         if text_embedding_path.exists():
             logger.info(" Loading cached text embeddings...")
@@ -227,7 +225,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
                                  clip_model: nn.Module,
                                  batch_size: int = 64) -> Dict[str, torch.Tensor]:
         """Compute text embeddings efficiently"""
-        # 提取所有唯一文本标签
+        # 提取所有唯一文本标签（set 去重）
         all_texts = set()
         for item in raw_data:
             for ann in item['frame_ann']:
@@ -235,7 +233,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
         uni_texts = list(all_texts)
 
-        # Batch encode for efficiency
+        # Batch encode for efficiency（分批编码以提高效率）
         embeddings_list = []
         for i in range(0, len(uni_texts), batch_size):
             batch_texts = uni_texts[i:i + batch_size]
@@ -244,7 +242,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
         text_embeddings = torch.cat(embeddings_list, dim=0)
 
-        # Create dictionary mapping text->embedding
+        # Create dictionary mapping text->embedding（建立文本到嵌入的映射字典）
         text_embeddings_dict = dict(zip(uni_texts, text_embeddings))
         # 空字符串对应全零向量（作为默认）
         text_embeddings_dict[''] = torch.zeros_like(text_embeddings[0])
@@ -253,6 +251,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def _load_meanstd(self) -> None:
         """Load or compute mean/std for normalization"""
+        # 加载或计算用于特征归一化的 mean/std，优先使用缓存文件
         meanstd_cache_path = self.datadir / 'meanstd.pkl'
         if meanstd_cache_path.exists():
             logger.info(f" Loading cached mean/std from {meanstd_cache_path}...")
@@ -261,7 +260,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
             logger.info(f" Computing mean/std..")
             assert self.split == 'train', "Compute mean and std from 'train' set"
 
-            # zjk: DART meanstd cal method
+            # DART 的 meanstd 计算方法（采样）
             meanstd = self._compute_meanstd()
             # meanstd = self._compute_meanstd_V2()
 
@@ -272,6 +271,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def _load_weighted_meanstd(self) -> None:
         """Load or compute mean/std for weighted normalization"""
+        # 加载或计算加权版本的 mean/std（逻辑与上面类似）
         meanstd_cache_path = self.datadir / 'weighted_meanstd.pkl'
         if meanstd_cache_path.exists():
             logger.info(f" Loading cached mean/std from {meanstd_cache_path}...")
@@ -288,6 +288,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def _compute_meanstd(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute mean and std efficiently by sampling batches"""
+        # 使用采样批次来估计 mean 和 std，避免一次性加载全部数据导致内存占用过高
         motion_sum = torch.zeros(self.nfeats)
         motion_square_sum = torch.zeros(self.nfeats)
         count = 0
@@ -299,7 +300,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
         self.mean = torch.zeros(self.nfeats)
         self.std = torch.ones(self.nfeats)
 
-        # Iterate sampled batches and累积求和、求平方和
+        # Iterate sampled batches 并累积求和、求平方和
         for i in tqdm(range(N)):
             batch_data = self._generate_batch_optimized(generator=torch.Generator().manual_seed(i))
 
@@ -343,6 +344,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     # ================================================================
     # Data reconstruction
+    # 数据重建相关方法（从特征还原为运动/关节位姿）
 
     def normalize(self, feat: torch.Tensor) -> torch.Tensor:
         """Normalize features"""
@@ -351,6 +353,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     def denormalize(self, feat: torch.Tensor) -> torch.Tensor:
         """Denormalize features"""
+        # 将标准化后的特征反算为原始尺度
         return feat * self.std.to(feat.device) + self.mean.to(feat.device)
 
     def reconstruct_motion(
@@ -362,6 +365,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
             ret_fk_full: bool = False
     ) -> Dict[str, torch.Tensor]:
         """Reconstruct motion from features"""
+        # 根据需要反标准化并使用 motion_feature_to_dict 恢复 motion dict，然后使用骨架计算正向运动学
         if need_denormalize:
             motion_feature = self.denormalize(motion_feature)
 
@@ -379,6 +383,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
     # ================================================================
     # Sampling from dataset
+    # 采样相关方法（motion-first 策略实现）
 
     def _get_overlap(self, seg1, seg2):
         # 计算两个时间区间的重叠长度（秒）
@@ -386,7 +391,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
         return overlap_len
 
     def have_overlap(self, seg1, seg2):
-        # 判断两个区间是否有重叠
+        # 判断两个区间是否有重叠（用于注释重叠检测）
         if seg1[0] > seg2[1] or seg2[0] > seg1[1]:
             return False
         else:
@@ -395,13 +400,13 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
     def _extract_single_primitive(self, sample: Dict[str, Any], prim_start: int,
                                   prim_end: int) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         """Extract a single primitive from motion data"""
-        # 从 sample['motion'] 中提取所需的键并转换为 tensor
+        # 从 sample['motion'] 中提取所需的键并转换为 tensor（切片操作）
         motion_data = {}
         for k in MotionKeys:
             if k in sample['motion']:
                 motion_data[k] = torch.tensor(sample['motion'][k][prim_start:prim_end], dtype=torch.float32)
 
-        # Find text label for the future portion
+        # Find text label for the future portion（查找未来段的文本标签）
         prim_labels = []
 
         # 计算未来区间的帧索引（history 在前，因此未来从 prim_start + history_len 开始）
@@ -422,6 +427,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
     def _generate_motion_primitives(self, sample: Dict[str, Any],
                                     seg_start: int) -> List[Tuple[Dict[str, torch.Tensor], torch.Tensor]]:
         """Generate all primitives from a single motion segment with proper overlapping"""
+        # 从一个起始帧生成该段内所有原语，确保相邻原语在 history 部分重叠以维持连续性
         primitives = []
 
         for primitive_idx in range(self.num_primitive):
@@ -438,7 +444,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
                              generator: Optional[torch.Generator
                              ] = None) -> List[List[Tuple[Dict[str, torch.Tensor], torch.Tensor]]]:
         """Sample a batch of motions and generate all their primitives"""
-        # 根据是否使用加权采样选择索引生成方式
+        # 根据是否使用加权采样选择索引生成方式（确保可复现性）
         if not self.weighted_sample:
             rand_idx = torch.randint(0, len(self.valid_indices), (self.batch_size,), generator=generator)
         else:
@@ -448,7 +454,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
 
         all_motion_primitives = []
         for batch_idx in range(self.batch_size):
-            # Get sample by index
+            # Get sample by index（通过索引获取样本）
             sample_idx = self.valid_indices[rand_idx[batch_idx].item()]  # type:ignore
             sample = self.raw_data[sample_idx]
 
@@ -472,6 +478,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
             self, all_motion_primitives: List[List[Tuple[Dict[str, torch.Tensor], torch.Tensor]]]
     ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """Organize primitives by primitive index for batching"""
+        # 将每个样本生成的原语按照原语索引重组，以便按原语批次计算特征和归一化
         batch_primitives = []
 
         for primitive_idx in range(self.num_primitive):
@@ -484,7 +491,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
                 motion_batch.append(motion_data)
                 text_batch.append(text_embedding)
 
-            # Convert to tensors and motion features
+            # Convert to tensors and motion features（将 motion dict 列表转换为特征张量）
             motion_features = self._convert_to_motion_features(motion_batch)
             text_features = torch.stack(text_batch)
 
@@ -500,7 +507,7 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
         for k in MotionKeys:
             motion_tensors[k] = torch.stack([m[k] for m in motion_batch])
 
-        # motion_dict_to_feature 将 motion dict 转换为特征张量
+        # motion_dict_to_feature 将 motion dict 转换为特征张量（以及可能的额外信息）
         motion_features, _ = motion_dict_to_feature(motion_tensors, self.skeleton)
 
         return motion_features
@@ -509,10 +516,10 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
                                   generator: Optional[torch.Generator
                                   ] = None) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """Generate a batch using motion-first approach"""
-        # Step 1: Sample motions and generate all their primitives
+        # Step 1: Sample motions and generate all their primitives（采样并生成原语）
         all_motion_primitives = self._sample_motion_batch(generator)
 
-        # Step 2: Organize primitives by index for batching
+        # Step 2: Organize primitives by index for batching（按原语索引重组并返回）
         batch_primitives = self._organize_primitives_by_index(all_motion_primitives)
 
         return batch_primitives
@@ -529,5 +536,5 @@ class SkeletonPrimitiveDataset(data.IterableDataset):
             yield self._generate_batch_optimized(generator=generator)
 
     def __len__(self) -> int:
-        # 数据集长度定义为有效样本数
+        # 数据集长度定义为有效样本数（可被 DataLoader 使用）
         return len(self.valid_indices)

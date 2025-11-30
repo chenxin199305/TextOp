@@ -7,10 +7,12 @@ import yaml
 from tqdm import tqdm
 from pathlib import Path
 
+# 脚本元信息：用于将 BABEL 注释与 AMASS 动作数据匹配并合并为训练/验证集合
 DATASET_NAME = "Babel-teach X AMASS Robot"
 BABEL_SPLIT = ['train', 'val']
-FPS = 50
+FPS = 50  # 帧率，BABEL / AMASS 数据的采样帧率（帧/s）
 
+# 终端颜色，便于调试输出识别
 RED = "\033[31m"
 YELLOW = "\033[33m"
 GREEN = "\033[32m"
@@ -20,6 +22,15 @@ RESET = "\033[0m"
 
 
 def process_babel_json(babel_json_path):
+    """
+    解析单个 BABEL JSON 文件（train.json / val.json）。
+    主要工作：
+    - 读取 JSON 中每个样本条目
+    - 校验并规范化 feat_p 路径（.npz -> .pkl，转为相对路径）
+    - 优先使用 frame_ann；若缺失则将 seq_ann 转为 frame_ann（将整段时间作为一个标签）
+    - 将每条 label 归纳为 (start_t, end_t, proc_label, act_cat)
+    返回：dict mapping feat_p -> { babel_sid, frame_ann(list), duration }
+    """
     with open(babel_json_path, 'r') as f:
         babel_json = json.load(f)
     result = {}
@@ -35,14 +46,15 @@ def process_babel_json(babel_json_path):
             assert feat_p and feat_p.endswith(".npz"), f"Invalid feat_p for {babel_id}"
             feat_p = feat_p.replace(".npz", ".pkl")
 
+            # 将 feat 路径规整为相对路径（相对于第一个路径组件）
             feat_p = Path(feat_p).relative_to(feat_p.split("/")[0])  # relative to the first component
-            feat_p = str(feat_p.as_posix())  # normalize path
+            feat_p = str(feat_p.as_posix())  # 规范化路径分隔符为 '/'
 
             frame_ann_raw = v.get("frame_ann", None)
             has_frame_ann = frame_ann_raw is not None and isinstance(frame_ann_raw, dict)
 
             if not has_frame_ann:
-                # Use seq_ann instead
+                # 如果缺少逐帧标注，则使用 seq_ann（序列标注）并把整段时间当作一个标签
                 seq_ann = v.get("seq_ann", None)
                 assert seq_ann and isinstance(seq_ann, dict) and "labels" in seq_ann, f"Missing seq_ann for {babel_id}"
                 seq_labels = seq_ann["labels"]
@@ -58,6 +70,7 @@ def process_babel_json(babel_json_path):
                 proc_label = label.get("proc_label")
                 act_cat = label.get("act_cat")
 
+                # 基本完整性校验：时间区间、处理标签与动作类别
                 assert start_t is not None and end_t is not None, f"Missing time range, got {start_t=}, {end_t=}"
                 assert proc_label, f"Missing proc_label for {babel_id}"
                 assert act_cat and isinstance(act_cat, list), f"Missing act_cat for {babel_id}"
@@ -71,6 +84,7 @@ def process_babel_json(babel_json_path):
             }
 
         except AssertionError as e:
+            # 出现断言错误时打印信息并跳过该条目（保留 breakpoint 方便调试）
             print(f"Skipping {k} due to error: {e}, where value is {v}")
             breakpoint()  # Debugging breakpoint
             continue
@@ -79,6 +93,10 @@ def process_babel_json(babel_json_path):
 
 
 def load_babel(BABEL_DIR):
+    """
+    加载 BABEL 数据集目录下的 train.json 和 val.json 文件并解析。
+    返回一个 dict: {'train': {...}, 'val': {...}}，内部为 process_babel_json 的结果。
+    """
     print(f"Loading BABEL dataset from: {BABEL_DIR}")
     babel_all = {}
     for split in BABEL_SPLIT:
@@ -89,6 +107,11 @@ def load_babel(BABEL_DIR):
 
 
 def load_amass(amass_dir):
+    """
+    遍历 AMASS 目录，加载所有 .pkl 文件（joblib 格式），并收集 motion 信息。
+    规范化每个 motion 的 fps 并将相对路径截断为最后 4 个路径组件以便匹配 BABEL 的 feat_p。
+    返回一个 dict: rel_path -> motion_dict
+    """
     print(f"Loading AMASS motion data from: {amass_dir}")
     all_motion_files = list(Path(amass_dir).rglob("*.pkl"))
     print(f"Found {len(all_motion_files)} motion files")
@@ -102,9 +125,11 @@ def load_amass(amass_dir):
                 motion['fps'] = 50
                 assert abs(motion['fps'] - FPS) < 1e-5, f"FPS mismatch for {motion_file}: {motion['fps']} != {FPS}"
                 rel_path = motion_file.relative_to(amass_dir).as_posix()
+                # 仅保留路径的最后 4 个组件以匹配 BABEL 中的 feat_p 约定
                 rel_path = "/".join(rel_path.split("/")[-4:])
                 amass_data[rel_path] = motion
         except Exception as e:
+            # 若某个文件加载失败则打印错误并跳过，不中断整个流程
             print(f"Error loading {motion_file}: {e}")
             continue
 
@@ -112,8 +137,15 @@ def load_amass(amass_dir):
 
 
 def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
+    """
+    合并 BABEL 注释和 AMASS 动作数据：
+    - 对每个 split（train/val）遍历 BABEL 条目，查找对应的 amass_data（基于 feat_p）
+    - 过滤掉自定义排除项、缺失 motion、或过短的 motion
+    - 为每条合并项计算 length（帧数）并保存 merged pkl 与统计信息（yaml）
+    """
     os.makedirs(output_dir, exist_ok=True)
 
+    # 数据汇总和存储
     merged_data = {}
     for split in BABEL_SPLIT:  # "train" and "val" splits
         merged = []
@@ -125,14 +157,17 @@ def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
 
             # print(f"split = {split}, feat_p = {feat_p}, motion = {motion}")
 
+            # 自定义排除：如果路径包含这些字符串则跳过（例如过难或不可行的动作）
             if any(content in feat_p for content in custom_exclusions):
                 print(f"{YELLOW}Skipping {feat_p} in {split} due to excluded content{RESET}")
                 continue  # exclude hard and infeasible motions
 
             if motion is None:
+                # 没有匹配到 AMASS 数据则跳过
                 print(f"{RED}Skipping {feat_p} in {split} due to missing{RESET}")
                 continue  # no matching AMASS motion
 
+            # 过滤过短的 motion 数据（帧数阈值为 67）
             if motion['root_trans_offset'].shape[0] <= 67:
                 print(f"{BLUE}Skipping {feat_p} in {split} due to short motion data{RESET}")
                 continue  # no matching AMASS motion
@@ -154,6 +189,7 @@ def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
         joblib.dump(merged, output_file)
         print(f"{GREEN}{BOLD}Saved {len(merged)} motions to {output_file}{RESET}")
 
+    # 汇总统计信息并写入 statistics.yaml
     stats = {
         'dataset name': DATASET_NAME,
         'fps': FPS,
@@ -163,6 +199,7 @@ def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
         'babel count': {k: len(v) for k, v in babel_data_all.items()},
         'amass count': len(amass_data),
         'merged count': {k: len(v) for k, v in merged_data.items() if k in BABEL_SPLIT},
+        # 计算总时长（dof 长度之和 / fps）
         'total duration': sum(
             sum(len(entry['motion']['dof']) for entry in merged_data[split])
             for split in BABEL_SPLIT
@@ -175,6 +212,7 @@ def merge_datasets(amass_data, babel_data_all, output_dir, custom_exclusions):
 
 
 def main():
+    # 核心执行流程：加载 babel、加载 amass、设置排除规则并进行合并
     babel_data = load_babel(BABEL_DIR)
     amass_data = load_amass(AMASS_ROBOT_DIR)
     output_dir = OUTPUT_DIR
