@@ -1,7 +1,11 @@
 """
-Train a Multi-Variate Autoencoder (MVAE) model for motion data using Hydra for configuration management.
+模块说明：
+训练 Multi-Variate Autoencoder (MVAE) 的主脚本。
 
-
+功能概述：
+- 基于传入的 Hydra 配置 (cfg) 初始化日志与随机种子。
+- 构建训练/验证数据集、VAE 模型、优化器与训练管理器(MVAEManager)。
+- 在主循环中交替执行训练步与评估步，通过 manager 管理学习率、日志与检查点。
 """
 
 import torch
@@ -16,7 +20,17 @@ from robotmdar.train.manager import MVAEManager
 
 
 def evaluate_distribution_match(normalized_data):
-    """评估归一化后数据分布是否接近标准正态"""
+    """评估归一化后数据的统计特性是否接近标准正态分布。
+
+    参数:
+        normalized_data (torch.Tensor): 形状为 [N, D] 的张量，表示已归一化后的样本特征。
+
+    返回:
+        dict: 包含以下键：
+            - 'mean_error' (float): 各维度均值与 0 的平均绝对偏差。
+            - 'std_error' (float): 各维度标准差与 1 的平均绝对偏差。
+            - 'is_well_normalized' (bool): 简单布尔判定，若 mean_error < 0.1 且 std_error < 0.2 则为 True。
+    """
     # 计算关键统计量
     actual_mean = normalized_data.mean(dim=0)  # 各特征均值
     actual_std = normalized_data.std(dim=0)  # 各特征标准差
@@ -37,6 +51,23 @@ def evaluate_distribution_match(normalized_data):
 
 
 def main(cfg: DictConfig):
+    """程序入口：根据 cfg 初始化并运行训练与评估循环。
+
+    参数:
+        cfg (DictConfig): Hydra 配置对象，常用字段包括：
+            - seed: 随机种子
+            - data.train / data.val: 数据集配置（用于 instantiate）
+            - vae: VAE 模型配置（用于 instantiate）
+            - train.manager: MVAEManager 配置（用于 instantiate）
+            - train.opt: 优化器参数（传递给 torch.optim.Adam）
+            - device: 运行设备（如 'cpu' 或 'cuda'）
+            - data.batch_size / data.num_primitive / data.future_len / data.history_len: 数据相关超参
+
+    行为:
+        - 初始化日志与随机种子
+        - 构造数据集、模型、优化器与 manager，并将模型/优化器交给 manager 管理
+        - 在可迭代的 manager 上循环：执行训练步、必要时运行评估步，并通过 manager 记录/保存状态。
+    """
     logger.set(cfg)
     seed.set(cfg.seed)
 
@@ -48,10 +79,10 @@ def main(cfg: DictConfig):
     # 为 MVAE 创建 Adam 优化器
     optimizer: Optimizer = torch.optim.Adam(vae.parameters(), **cfg.train.opt)
 
-    # 实例化训练管理器 MVAEManager 训练管理器（封装训练状态、日志、检查点、学习率调度、评价控制等）。
+    # 实例化训练管理器 MVAEManager（封装训练状态、日志、检查点、调度等）。
     manager: MVAEManager = instantiate(cfg.train.manager)
 
-    # 把模型、优化器和训练数据“交给” manager 管理
+    # 把模型、优化器和训练数据交给 manager 管理
     manager.hold_model(vae, optimizer, train_data)
 
     train_dataiter = iter(train_data)
