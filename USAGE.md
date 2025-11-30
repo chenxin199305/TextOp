@@ -56,7 +56,8 @@ cd TextOpRobotMDAR
 EXPNAME=ExampleRun
 #DATADIR=BABEL-AMASS-ROBOT-23dof-FULL-50fps
 DATADIR=BABEL-AMASS-ROBOT-23dof-50fps-TEACH
-DATAFLAGS="data.weighted_sample=true data.datadir=./dataset/${DATADIR} 
+DATAFLAGS="
+data.weighted_sample=true data.datadir=./dataset/${DATADIR} 
 data.action_statistics_path=./dataset/${DATADIR}/action_statistics.json 
 skeleton.asset.assetRoot=./description/robots/g1/"
 ```
@@ -72,16 +73,25 @@ We have provided some pretrained checkpoints:
 #### 1. Run Online Motion Generation with DAR:
 
 ```bash
-robotmdar --config-name=loop_dar ckpt.dar=/path/to/dar/ckpt_200000.pth guidance_scale=5.0 ${DATAFLAGS}
+robotmdar 
+--config-name=loop_dar 
+ckpt.dar=/path/to/dar/ckpt_200000.pth 
+guidance_scale=5.0 
+${DATAFLAGS}
 ```
 
 #### 2. Run Inference on text-motion pairs from the dataset.
 
 ```bash
-robotmdar --config-name=vis_mvae ckpt.vae=/path/to/mvae/ckpt_200000.pth ${DATAFLAGS}
+robotmdar 
+--config-name=vis_mvae 
+ckpt.vae=/path/to/mvae/ckpt_200000.pth 
+${DATAFLAGS}
 
-robotmdar --config-name=vis_dar ckpt.dar=/path/to/dar/ckpt_200000.pth guidance_scale=5.0 ${DATAFLAGS}
-
+robotmdar 
+--config-name=vis_dar ckpt.dar=/path/to/dar/ckpt_200000.pth 
+guidance_scale=5.0 
+${DATAFLAGS}
 ```
 
 ### Training MVAE & DAR
@@ -89,13 +99,16 @@ robotmdar --config-name=vis_dar ckpt.dar=/path/to/dar/ckpt_200000.pth guidance_s
 - You can shorten training duration by modifying: `train.manager.stages`, which are the number of training steps in multiple stages.
 
 ```bash
-
+# Train MVAE
+# 分成了三阶段训练，分别训练100k、50k、50k步，可以根据需求调整
 robotmdar --config-name=train_mvae expname=${EXPNAME} \
 ${DATAFLAGS} \
 train.manager.stages=[100000,50000,50000] \
 data.num_primitive=4 \
 train.manager.use_rollout=True
 
+# Train DAR
+# 分成了三阶段训练，分别训练100k、100k、100k步，可以根据需求调整
 robotmdar --config-name=train_dar expname=${EXPNAME} \
 ${DATAFLAGS} \
 train.manager.stages=[100000,100000,100000] \
@@ -103,7 +116,6 @@ data.num_primitive=4 \
 train.manager.use_rollout=True \
 train.manager.use_full_sample=True \
 diffusion.num_timesteps=5
-
 ```
 
 ## TextOpTracker
