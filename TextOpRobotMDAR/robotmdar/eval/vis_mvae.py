@@ -64,15 +64,16 @@ def add_batch_fn(
             - 不返回值，异常会向上抛出以便外部处理。
         """
         # 初始化用于重建绝对位姿（abs pose）的占位张量，形状为 (batch_size, ...)
-        pd_abs_pose = get_zero_abs_pose((cfg.data.batch_size,),
-                                        device=cfg.device)
-        gt_abs_pose = get_zero_abs_pose((cfg.data.batch_size,),
-                                        device=cfg.device)
+        pd_abs_pose = get_zero_abs_pose((cfg.data.batch_size,), device=cfg.device)
+        gt_abs_pose = get_zero_abs_pose((cfg.data.batch_size,), device=cfg.device)
+
         # 从验证数据迭代器获取一批数据
         batch = next(val_dataiter)
+
         # 准备当前批次的预测/真实缓冲（按 primitive 列表）
         pd_buff: List[Tuple[QPos, torch.Tensor]] = []
         gt_buff: List[Tuple[QPos, torch.Tensor]] = []
+
         for pidx in range(num_primitive):
             # 每个 primitive 对应一个 motion, cond
             # motion 形状通常为 [batch, seq_len, feature_dim]
@@ -86,6 +87,7 @@ def add_batch_fn(
             # 使用 VAE 编码未来（GT）与历史 -> 得到潜变量与分布
             latent, dist = vae.encode(future_motion=future_motion_gt,
                                       history_motion=history_motion)
+
             # 使用潜变量与历史解码出未来预测
             future_motion_pred = vae.decode(latent,
                                             history_motion,
@@ -103,18 +105,12 @@ def add_batch_fn(
                 ret_fk=False)
 
             # 通过 motion_dict_to_abs_pose 更新绝对位姿（通常取倒数第二帧作为参考 idx=-2）
-            pd_abs_pose = motion_dict_to_abs_pose(future_motion_pred_dict,
-                                                  idx=-2)
-            gt_abs_pose = motion_dict_to_abs_pose(future_motion_gt_dict,
-                                                  idx=-2)
+            pd_abs_pose = motion_dict_to_abs_pose(future_motion_pred_dict, idx=-2)
+            gt_abs_pose = motion_dict_to_abs_pose(future_motion_gt_dict, idx=-2)
 
             # 将 feature dict 转换为 qpos（关节角度等），并转为 numpy 以便可视化渲染使用
-            pd_buff.append(
-                tree_to_numpy(motion_dict_to_qpos(
-                    future_motion_pred_dict)))  # type: ignore
-            gt_buff.append(
-                tree_to_numpy(motion_dict_to_qpos(
-                    future_motion_gt_dict)))  # type: ignore
+            pd_buff.append(tree_to_numpy(motion_dict_to_qpos(future_motion_pred_dict)))  # type: ignore
+            gt_buff.append(tree_to_numpy(motion_dict_to_qpos(future_motion_gt_dict)))  # type: ignore
 
         # 将本批次按 primitive 的预测/真实结果追加到全局 motion 缓冲
         motion_buff['pd'].append(pd_buff)
@@ -153,6 +149,7 @@ def main(cfg: DictConfig):
     # 实例化 VAE 并设置为评估模式（不启用 dropout/batchnorm 更新）
     vae: VAE = instantiate(cfg.vae)
     vae.eval()
+
     # 通过训练管理器把模型、优化器等挂载起来（此处只 hold 模型，第二个参数为 None）
     manager: MVAEManager = instantiate(cfg.train.manager)
     manager.hold_model(vae, None, val_data)
@@ -172,8 +169,14 @@ def main(cfg: DictConfig):
     vs = VisState()
 
     # 生成用于不断向缓冲里追加批次的闭包函数
-    add_batch = add_batch_fn(motion_buff, val_dataiter, vae, val_data,
-                             num_primitive, future_len, history_len, cfg)
+    add_batch = add_batch_fn(motion_buff,
+                             val_dataiter,
+                             vae,
+                             val_data,
+                             num_primitive,
+                             future_len,
+                             history_len,
+                             cfg)
 
     # 获取键盘回调函数（用于交互控制）
     keycb_fn = get_keycb_fn(vs)
@@ -181,5 +184,11 @@ def main(cfg: DictConfig):
     fps = val_data.fps
 
     # 启动 mujoco 的自动循环渲染函数，传入所有必要的参数与回调
-    mjc_autoloop_mdar(vs, fps, num_primitive, future_len, history_len,
-                      motion_buff, add_batch, keycb_fn)
+    mjc_autoloop_mdar(vs,
+                      fps,
+                      num_primitive,
+                      future_len,
+                      history_len,
+                      motion_buff,
+                      add_batch,
+                      keycb_fn)

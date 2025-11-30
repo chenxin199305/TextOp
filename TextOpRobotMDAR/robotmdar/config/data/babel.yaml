@@ -20,8 +20,8 @@ action_statistics_path: ./dataset/action_statistics_telemotion.json
 # datadir: ./dataset/BABEL-TeleMotion-ROBOT-23dof-9770-100-Merged
 # datadir: ./dataset/BABEL-TeleMotion-ROBOT-23dof-Full-300-Merged
 # datadir: ./dataset/BABEL-TeleMotion-ROBOT-23dof-Full-1ANN-1000-Merged
-# datadir: ./dataset/BABEL-AMASS-ROBOT-23dof-FULL-50fps
-datadir: dataset/BABEL-TeleMotion-ROBOT-23dof-Full-1ANN-1000-Merged-Interp
+datadir: ./dataset/BABEL-AMASS-ROBOT-23dof-FULL-50fps
+# datadir: dataset/BABEL-TeleMotion-ROBOT-23dof-Full-1ANN-1000-Merged-Interp
 
 common: &common
   _target_: robotmdar.dataloader.data.SkeletonPrimitiveDataset
