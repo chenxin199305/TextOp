@@ -27,9 +27,9 @@ def evaluate_distribution_match(normalized_data):
 
     返回:
         dict: 包含以下键：
-            - 'mean_error' (float): 各维度均值与 0 的平均绝对偏差。
-            - 'std_error' (float): 各维度标准差与 1 的平均绝对偏差。
-            - 'is_well_normalized' (bool): 简单布尔判定，若 mean_error < 0.1 且 std_error < 0.2 则为 True。
+            - "mean_error" (float): 各维度均值与 0 的平均绝对偏差。
+            - "std_error" (float): 各维度标准差与 1 的平均绝对偏差。
+            - "is_well_normalized" (bool): 简单布尔判定，若 mean_error < 0.1 且 std_error < 0.2 则为 True。
     """
     # 计算关键统计量
     actual_mean = normalized_data.mean(dim=0)  # 各特征均值
@@ -44,9 +44,9 @@ def evaluate_distribution_match(normalized_data):
     std_error = (actual_std - perfect_std).abs().mean()
 
     return {
-        'mean_error': mean_error.item(),
-        'std_error': std_error.item(),
-        'is_well_normalized': mean_error < 0.1 and std_error < 0.2
+        "mean_error": mean_error.item(),
+        "std_error": std_error.item(),
+        "is_well_normalized": mean_error < 0.1 and std_error < 0.2
     }
 
 
@@ -60,7 +60,7 @@ def main(cfg: DictConfig):
             - vae: VAE 模型配置（用于 instantiate）
             - train.manager: MVAEManager 配置（用于 instantiate）
             - train.opt: 优化器参数（传递给 torch.optim.Adam）
-            - device: 运行设备（如 'cpu' 或 'cuda'）
+            - device: 运行设备（如 "cpu" 或 "cuda"）
             - data.batch_size / data.num_primitive / data.future_len / data.history_len: 数据相关超参
 
     行为:
@@ -151,7 +151,7 @@ def main(cfg: DictConfig):
                                                   future_motion_pred,
                                                   dist,
                                                   history_motion=history_motion)
-            loss = loss_dict['total']
+            loss = loss_dict["total"]
 
             # optimizer.zero_grad()：清零梯度。
             # loss.backward()：反向传播计算梯度。
