@@ -55,11 +55,28 @@ class BaseManager(ABC):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-        # 设置默认值
+        """
+        关于 _stage_steps 与分阶段（0..3）的说明（中文）：
+        - self.stages: 来自配置的每个阶段的步数列表，例如 [10000, 10000, 10000, 10000] 表示四个阶段。
+        - self._stage_steps: 为累计步数的边界，例如上例会得到 [10000, 20000, 30000, 40000]。
+          代码通过 torch.searchsorted(self._stage_steps, self.step) 将当前 step 映射到阶段索引 stage_idx。
+          searchsorted 的结果通常在 [0, len(self.stages)] 范围内：
+            * 0 表示处于第 1 阶段的区间（step < 第一个边界）；
+            * len(self.stages)-1 表示处于最后一个阶段区间；
+            * 若 step 超过最后一个边界，searchsorted 会返回 len(self.stages)，这里可视为“超出预定最大步数”的情况。
+        - 为什么常用 4 个阶段（0~3）：
+            1. 阶段 0（预热 / warm-up）：可用于稳定训练、只训练部分参数或小 lr，避免模型在初始阶段崩溃。
+            2. 阶段 1（主训练）：核心训练阶段，开启大部分训练策略。
+            3. 阶段 2（引入技巧）：可能逐步引入复杂技巧（如 rollout、static pose、更强的数据扰动或更严格的正则）。
+            4. 阶段 3（微调 / 收敛）：降低学习率、微调模型或开启更严格的评估语义以收敛到更好的性能。
+        - 通过分阶段可以在训练进度上动态切换策略（如 use_rollout、use_static_pose、use_full_sample、anneal_lr 等），
+          使得训练既稳定又能逐步引入更复杂的训练手段以提高最终效果。
+        - 在本代码中，pre_step/should_rollout/should_static_pose/should_use_full_sample 等函数都会依据 stage_idx 做判断与切换，
+          因此正确理解并配置 self.stages 对训练行为非常关键。
+        """
         self.stage_idx = -1
         self._stage_steps = torch.cumsum(torch.tensor(self.stages).int(), dim=0)
-        # assert self._stage_steps[
-        #     -1] == self.max_steps, "Stage steps must sum to max_steps"
+        # assert self._stage_steps[-1] == self.max_steps, "Stage steps must sum to max_steps"
         self.max_steps = int(self._stage_steps[-1])
 
         self.step = 0
@@ -82,7 +99,19 @@ class BaseManager(ABC):
         self.static_prob = getattr(self, 'static_prob', 0.0)
 
     def pre_step(self, is_eval: bool = False) -> None:
-        """每一步训练/评估开始时调用：更新阶段索引、进度条与学习率等元信息。"""
+        """每一步训练/评估开始时调用：更新阶段索引、进度条与学习率等元信息。
+
+        参数:
+            is_eval (bool): 表示当前是否处于评估模式（True 时将不会推进 step，仅用于 eval aggregation）。
+
+        行为说明:
+            - 根据 self.step 与 self._stage_steps 计算当前 stage_idx（阶段索引）。
+            - 初始化或更新 tqdm 进度条（用于训练显示）。
+            - 若配置 anneal_lr=True，则对当前学习率执行线性衰减，并写入 self.extra['lr']。
+            - 更新 optimizer.param_groups[0]["lr"] 以实际控制优化器学习率。
+        返回:
+            None（通过修改对象内部状态驱动后续训练流程）。
+        """
 
         # self._stage_steps 是一个递增的 step 边界列表
         # searchsorted 会查找当前 step 属于第几阶段
@@ -113,8 +142,13 @@ class BaseManager(ABC):
             # 更新 optimizer 的学习率
             self.optimizer.param_groups[0]["lr"] = lrnow
         else:
+            # 保持固定学习率
             lrnow = self.learning_rate
+
+            # 存储 lr 到日志中
             self.extra['lr'] = lrnow
+
+            # 更新 optimizer 的学习率
             self.optimizer.param_groups[0]["lr"] = lrnow
 
     def post_step(
@@ -349,7 +383,21 @@ class GeometryLoss:
             quantize=False,
             drift=False
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """计算几何损失"""
+        """计算几何相关损失并返回 terms 与 extras。
+
+        参数:
+            future_motion_pred (torch.Tensor): 模型预测的 future 特征，形状通常为 [B, T, D]（已归一化或未，取决于 dataset 接口）。
+            future_motion_gt (torch.Tensor): ground-truth 的 future 特征，形状同上。
+            history_motion (Optional[torch.Tensor]): 可选的历史帧特征，若提供可计算 temporal 平滑/delta 损失。
+            smooth (bool): 若 True，添加基于相邻帧一阶差分的平滑损失。
+            quantize (bool): 若 True，对旋转和平移做量化并加入相应损失项（用于模拟低精度编码）。
+            drift (bool): 若 True，计算并加入 yaw/xy drift 相关损失（用于约束漫移）。
+
+        返回:
+            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+                - terms: 主要损失项字典（用于加权求和，例如 body_trans/body_rot/dof_pos/...）。
+                - extras: 额外统计量（例如 drift 值等），便于日志上报。
+        """
         terms = {}
         extras = {}
 
@@ -432,8 +480,14 @@ class GeometryLoss:
                               future_motion_pred,
                               future_motion_gt,
                               history_motion=None) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """计算几何损失"""
+        """v2 版本的几何损失计算。
 
+        说明:
+            - 该版本侧重于使用 FK（forward kinematics）重建关节/根节点信息后计算位置、旋转以及 delta 相关的损失。
+            - 会对 joints consistency、temporal delta（基于预测的 joints/rot/trans delta）等添加约束。
+
+        参数与返回与 calc_geometry_loss 相同（terms / extras 字典）。
+        """
         terms = {}
         extras = {}
 
@@ -488,8 +542,13 @@ class GeometryLoss:
                               future_motion_pred,
                               future_motion_gt,
                               history_motion=None) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """计算几何损失"""
+        """v3 版本的几何损失计算，适配 FeatureVersion=5 的特征格式。
 
+        说明:
+            - 该版本基于 dataset.reconstruct_motion 的输出字段（例如 global_translation_extend/global_rotation/dof_pos/dof_vel 等）计算损失。
+            - 若提供 history_motion，还会计算 temporal delta（trans/joints/dof）的一致性损失。
+            - 返回 terms（可直接与 loss_weight 加权）和 extras（用于日志）。
+        """
         terms = {}
         extras = {}
 
@@ -550,10 +609,9 @@ class GeometryLoss:
 
 class MVAEManager(BaseManager, GeometryLoss):
     """
-    Training manager for MVAE (Motion Variational AutoEncoder).
+    训练 MVAE（Motion Variational AutoEncoder）的管理器。
 
-    Inherits from BaseManager for common training functionality and GeometryLoss
-    for geometric loss computation capabilities.
+    继承 BaseManager（提供通用训练逻辑）和 GeometryLoss（提供几何损失计算能力）。
     """
 
     vae: nn.Module
@@ -581,8 +639,19 @@ class MVAEManager(BaseManager, GeometryLoss):
                   future_motion_pred,
                   dist,
                   history_motion=None) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-        """计算损失：重构损失、KL 散度与几何损失等"""
+        """计算 MVAE 的复合损失（重构、KL 与几何项等），并返回损失项与额外统计。
 
+        参数:
+            future_motion_gt (torch.Tensor): ground-truth future 特征 [B, T, D]
+            future_motion_pred (torch.Tensor): 模型预测的 future 特征 [B, T, D]
+            dist (Distribution): VAE 编码器输出的后验分布（用于 KL 计算）
+            history_motion (Optional[torch.Tensor]): 可选的 history 特征，用于几何损失的 temporal 项
+
+        返回:
+            (loss_dict, extras_dict):
+                - loss_dict: 包含各个损失项（'rec','kl', geometry terms..., 'total'）的字典
+                - extras_dict: 包含额外可记录量（drift 等）的字典
+        """
         loss = {}
         extras = {}
 
@@ -670,11 +739,11 @@ class MVAEManager(BaseManager, GeometryLoss):
 
 class DARManager(BaseManager, GeometryLoss):
     """
-    Training manager for DAR (Diffusion AutoRegressive) model.
+    DAR（Diffusion AutoRegressive）训练管理器。
 
-    Manages both VAE and denoiser models, with support for full DDPM sampling
-    and advanced training strategies.
+    管理 VAE 与去噪器（denoiser）模型，支持完整的 DDPM 采样与训练策略。
     """
+
     vae: nn.Module
     denoiser: nn.Module
 
@@ -682,15 +751,15 @@ class DARManager(BaseManager, GeometryLoss):
     use_full_sample: bool
 
     def hold_model(self, vae, denoiser, optimizer, dataset):
-        """绑定 VAE 与去噪模型及优化器，并注册 EMA 模型。"""
+        """绑定 VAE、去噪模型和优化器，并注册 EMA 模型。"""
         self.vae = vae.to(self.device)
         self.denoiser = denoiser.to(self.device)
         self.optimizer = optimizer
         self.dataset = dataset
 
-        logger.info("DARManager: Holding denoiser models and optimizer. VAE loaded from checkpoint.")
+        logger.info("DARManager: 持有 denoiser 模型与 optimizer，VAE 从 checkpoint 加载。")
 
-        # 注册EMA模型
+        # 注册 EMA 模型
         self.register_ema_model('denoiser', self.denoiser)
 
         if self.ckpt.dar is not None:
@@ -701,35 +770,34 @@ class DARManager(BaseManager, GeometryLoss):
             assert old_vae_path.exists(), f"VAE checkpoint not found at {old_vae_path}"
             self.ckpt.vae = str(old_vae_path)
 
-        # Search Logic
-        # 1. Search cache path
-        # 2. Search self.ckpt.vae
-        # 3. Search nearby 'train-mvae-*'
+        # 查找逻辑：
+        # 1. 先尝试 cache 路径
+        # 2. 再尝试配置中的 ckpt.vae
+        # 3. 最后在同级目录搜索最新的 train-mvae-* 下的 ckpt
         cache_vae_path = self.save_dir / "vae.pth"
         if not cache_vae_path.exists():
             if self.ckpt.vae is None:
                 maybe_vae_path = self.try_search_vae_path()
                 if not maybe_vae_path:
-                    raise ValueError("VAE checkpoint path must be provided in ckpt.vae")
+                    raise ValueError("必须在 ckpt.vae 中提供 VAE checkpoint 路径")
                 self.ckpt.vae = str(maybe_vae_path)
-                logger.warning(f"VAE checkpoint path not provided, using the searched one: {self.ckpt.vae}")
+                logger.warning(f"未提供 VAE checkpoint 路径，使用自动搜索到的: {self.ckpt.vae}")
             if self.save_dir.exists():
                 try:
-                    # Hard Link, not soft link. It should be more safe
+                    # 创建硬链接（比软链接更安全）
                     os.link(self.ckpt.vae, cache_vae_path)
                 except OSError as e:
-                    # If self.ckpt.vae and cache_vae_path lie in different filesystem,
-                    # it will raise error.
+                    # 如果两个路径位于不同文件系统，会抛出 EXDEV；此时回退为拷贝
                     if e.errno in (errno.EXDEV, errno.EPERM, errno.EACCES):
                         shutil.copy2(self.ckpt.vae, cache_vae_path)
                     else:
                         raise
-                logger.info(f"VAE cached to {cache_vae_path}")
+                logger.info(f"已将 VAE 缓存到 {cache_vae_path}")
                 vae_src_path = self.save_dir / "vae_src.log"
                 with open(vae_src_path, "w") as f:
                     f.write(str(self.ckpt.vae))
             else:
-                logger.warning(f"Save dir {self.save_dir} not exists, skip caching VAE")
+                logger.warning(f"保存目录 {self.save_dir} 不存在，跳过缓存 VAE")
                 cache_vae_path = Path(self.ckpt.vae)
 
         self._load_vae_from_checkpoint(cache_vae_path)
@@ -737,10 +805,10 @@ class DARManager(BaseManager, GeometryLoss):
 
     def try_search_vae_path(self) -> Optional[Path]:
         exp_dir = self.save_dir.parent
-        # 按修改时间排序（最新在前）
+        # 按修改时间排序（最近修改的在前）
         mvae_dirs = sorted(exp_dir.glob("train-mvae-*"), key=lambda p: p.stat().st_mtime, reverse=True)
         if len(mvae_dirs) > 1:
-            logger.warning("Multiple MVAE checkpoints found, using the latest one")
+            logger.warning("找到多个 MVAE checkpoint，使用最新的那个")
 
         for mvae_dir in mvae_dirs:
             ckpt_files = sorted(mvae_dir.glob("ckpt_*.pth"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -749,7 +817,7 @@ class DARManager(BaseManager, GeometryLoss):
         return None
 
     def _load_vae_from_checkpoint(self, ckpt_path: Path):
-        """Load VAE from checkpoint following DART's approach"""
+        """从 checkpoint 加载 VAE 并做必要的兼容处理（参照 DART 的做法）"""
         checkpoint = torch.load(ckpt_path, map_location=self.device)
         vae_state_dict = checkpoint['vae']
 
@@ -781,6 +849,23 @@ class DARManager(BaseManager, GeometryLoss):
             weights=None,
             history_motion=None
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        """计算 DAR 的训练损失。
+
+        说明:
+            - 包含重构损失(rec)、可选 KL、latent 重建损失(latent_rec) 以及几何损失项。
+            - 若提供 weights，则对 total loss 按 weights.mean() 做额外缩放（常用于 diffusion 的时间或重要性加权）。
+
+        参数:
+            future_motion_gt, future_motion_pred: 同上
+            latent (torch.Tensor): 当前 sample 的潜变量表示（用于 latent_rec）
+            dist (Optional[Distribution]): 可选的后验分布（用于计算 KL）
+            latent_pred (Optional[torch.Tensor]): 模型对 latent 的重建预测（用于 latent_rec）
+            weights (Optional[torch.Tensor]): 每样本权重，形状 [B] 或 [B, ...]，用于对 total loss 加权
+            history_motion (Optional[torch.Tensor]): 供几何损失计算使用的历史序列
+
+        返回:
+            (terms, extras)：同 MVAEManager.calc_loss 的约定。
+        """
         terms = {}
         extras = {}
 
@@ -848,6 +933,7 @@ class DARManager(BaseManager, GeometryLoss):
         return terms, extras
 
     def save_model(self) -> None:
+        """保存 DAR 的 denoiser、optimizer 以及可选的 EMA 模型到 ckpt 文件。"""
         save_path = self.save_dir / f"ckpt_{self.step}.pth"
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -866,6 +952,7 @@ class DARManager(BaseManager, GeometryLoss):
         logger.info(f"Current step: {self.step}")
 
     def load_model(self, ckpt_path: Path):
+        """从 ckpt 加载 denoiser、optimizer，并恢复 step；若包含 EMA 状态亦一并加载。"""
         state_dict = torch.load(ckpt_path, map_location=self.device)
         self.denoiser.load_state_dict(state_dict['denoiser'])
         if self.optimizer is not None:
@@ -883,11 +970,11 @@ class DARManager(BaseManager, GeometryLoss):
         logger.info(f"CKPT step: {self.step}")
 
     def update_ema_models(self):
-        """更新EMA模型"""
+        """更新 EMA 模型（这里更新 denoiser 的 EMA）。"""
         self.update_ema('denoiser', self.denoiser)
 
     def should_use_full_sample(self) -> bool:
-        """判断是否使用完整DDPM采样"""
+        """判断当前阶段是否允许使用完整的 DDPM 采样策略。"""
         if not self.use_full_sample:
             return False
         return self.stage_idx > 0
